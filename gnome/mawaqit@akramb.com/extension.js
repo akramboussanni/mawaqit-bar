@@ -2,13 +2,15 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Geoclue from 'gi://Geoclue?version=2.0';
 import Soup from 'gi://Soup?version=3.0';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import {parseCalendar, schedule, mosqueSlug} from './calendar.js';
+import {parseCalendar, parseCalculatedCalendar, schedule, mosqueSlug} from './calendar.js';
 import {dueNotifications} from './notifications.js';
+import {remaining, prayerDetail, panelTitle, displayPrayers, nextSummary} from './presentation.js';
 
 export default class MawaqitExtension extends Extension {
     enable() {
@@ -33,17 +35,39 @@ export default class MawaqitExtension extends Extension {
         box.add_child(this._panelLabel);
         this._button.add_child(box);
         this._button.menu.box.add_style_class_name('mawaqit-menu');
-        this._searchEntry = this._entry('Mosque, city, coordinates or URL', () => this._search());
+        this._searchEntry = this._entry('Mosque, city, coordinates or URL', () => this._search(), this._button.menu, true);
         this._searchEntry.set_primary_icon(new St.Icon({icon_name: 'system-search-symbolic'}));
-        this._status = this._text('Enter a mosque or city and press Enter');
-        this._status.label.connect('notify::text', () => {
-            this._status.actor.visible = Boolean(this._status.label.text);
-        });
-        this._status.label.clutter_text.line_wrap = true;
-        this._status.label.clutter_text.ellipsize = 0;
-        this._status.add_style_class_name('mawaqit-status');
         this._results = new PopupMenu.PopupMenuSection();
         this._button.menu.addMenuItem(this._results);
+        this._calculatedSuggestion = this._action('Use calculated prayer times for this search', () => {
+            this._calculatedEntry.set_text(this._searchEntry.get_text());
+            this._chooseCalculated();
+        });
+        this._calculatedSuggestion.actor.visible = false;
+        this._searchEntry.clutter_text.connect('text-changed', () => {
+            const query = this._searchEntry.get_text().trim();
+            this._calculatedSuggestion.actor.visible = query.length >= 2 && !/^https?:\/\//i.test(query);
+        });
+        this._calculatedMenu = new PopupMenu.PopupSubMenuMenuItem('Use calculated prayer times');
+        this._calculatedMenu.insert_child_at_index(this._icon('find-location-symbolic'), 1);
+        this._calculatedMenu.add_style_class_name('mawaqit-calculated-menu');
+        this._button.menu.addMenuItem(this._calculatedMenu);
+        const calculatedIntro = new PopupMenu.PopupMenuItem(
+            'If you cannot find a nearby Mawaqit mosque, AlAdhan can calculate times from your location. These may differ from your local mosque or religious authority.',
+            {reactive: false});
+        calculatedIntro.add_style_class_name('mawaqit-calculated-intro');
+        calculatedIntro.label.clutter_text.line_wrap = true;
+        calculatedIntro.label.clutter_text.ellipsize = 0;
+        this._calculatedMenu.menu.addMenuItem(calculatedIntro);
+        this._currentLocationAction = this._action('Use my current location',
+            () => this._requestCurrentLocation(), this._calculatedMenu.menu);
+        this._currentLocationAction.insert_child_at_index(this._icon('find-location-symbolic'), 1);
+        this._calculatedMenu.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        this._calculatedEntry = this._entry('City, country or latitude, longitude',
+            () => this._chooseCalculated(), this._calculatedMenu.menu);
+        this._calculatedEntry.set_primary_icon(new St.Icon({icon_name: 'mark-location-symbolic'}));
+        this._calculatedSubmit = this._action('Use entered location',
+            () => this._chooseCalculated(), this._calculatedMenu.menu);
         this._prayerSeparator = new PopupMenu.PopupSeparatorMenuItem();
         this._button.menu.addMenuItem(this._prayerSeparator);
         this._title = this._text('');
@@ -52,6 +76,10 @@ export default class MawaqitExtension extends Extension {
         this._title.insert_child_at_index(this._icon('mark-location-symbolic'), 1);
         this._title.label.clutter_text.line_wrap = true;
         this._subtitle.add_style_class_name('mawaqit-subtitle');
+        this._source = this._text('');
+        this._source.add_style_class_name('mawaqit-source');
+        this._source.label.clutter_text.line_wrap = true;
+        this._source.label.clutter_text.ellipsize = 0;
         this._upcomingSummary = this._text('');
         this._upcomingSummary.add_style_class_name('mawaqit-upcoming-summary');
         this._todayHeading = this._text('TODAY’S PRAYERS');
@@ -70,21 +98,35 @@ export default class MawaqitExtension extends Extension {
             if (enabled) Main.notify('Prayer notifications enabled', 'Alerts at prayer start and the last third of the night.');
         });
         this._button.menu.addMenuItem(this._notificationSwitch);
-        this._refreshAction = this._action('Refresh prayer times', () => this._refresh());
+        this._iconOnlySwitch = new PopupMenu.PopupSwitchMenuItem('Icon only in top bar', this._state.iconOnlyMenuBar === true);
+        this._iconOnlySwitch.connect('toggled', (_item, enabled) => {
+            this._state.iconOnlyMenuBar = enabled;
+            this._save();
+            this._render();
+        });
+        this._button.menu.addMenuItem(this._iconOnlySwitch);
+        this._refreshAction = this._action('Refresh prayer times', () => this._refreshCurrent());
         this._refreshAction.insert_child_at_index(this._icon('view-refresh-symbolic'), 1);
         this._refreshAction.add_style_class_name('mawaqit-refresh');
+        this._status = this._text('Search for a Mawaqit mosque, or use calculated times from the menu below.');
+        this._status.label.connect('notify::text', () => {
+            this._status.actor.visible = Boolean(this._status.label.text);
+        });
+        this._status.label.clutter_text.line_wrap = true;
+        this._status.label.clutter_text.ellipsize = 0;
+        this._status.add_style_class_name('mawaqit-status');
         this._button.menu.connect('open-state-changed', (_menu, open) => {
             if (open) this._render();
-            if (open && !this._state.slug) this._searchEntry.grab_key_focus();
+            if (open && !this._hasLocation()) this._searchEntry.grab_key_focus();
         });
         Main.panel.addToStatusArea(this.uuid, this._button);
         this._render();
-        if (this._state.slug) this._refresh();
+        if (this._hasLocation()) this._refreshCurrent();
         this._timer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 30, () => {
             this._render();
             this._checkNotifications();
-            if (this._state.slug && Date.now() - (this._lastAttempt ?? 0) > 3600000)
-                this._refresh();
+            if (this._hasLocation() && Date.now() - (this._lastAttempt ?? 0) > 3600000)
+                this._refreshCurrent();
             return GLib.SOURCE_CONTINUE;
         });
     }
@@ -92,11 +134,12 @@ export default class MawaqitExtension extends Extension {
     _checkNotifications() {
         const since = this._lastNotificationCheck;
         this._lastNotificationCheck = Math.floor(Date.now() / 1000);
-        if (!this._alive || !this._data || !this._state.slug || this._state.notificationsEnabled === false || this._state.year !== new Date().getUTCFullYear()) return;
+        if (!this._alive || !this._data || !this._hasLocation() || this._state.notificationsEnabled === false || this._state.year !== new Date().getUTCFullYear()) return;
         try {
             const view = schedule(this._data);
             for (const event of dueNotifications(view, since, this._notificationSeen)) {
-                Main.notify(event.title, `${this._state.name ?? this._state.slug} · ${event.body} (${view.timezone})`);
+                const source = this._isCalculated() ? ' · Calculated by AlAdhan' : '';
+                Main.notify(event.title, `${this._state.name ?? this._state.slug ?? this._state.calculationQuery} · ${event.body} (${view.timezone})${source}`);
                 this._notificationSeen.add(event.id);
             }
             if (this._notificationSeen.size > 30)
@@ -105,8 +148,7 @@ export default class MawaqitExtension extends Extension {
     }
 
     _remaining(unix, now) {
-        const minutes = Math.max(1, Math.ceil((unix - now) / 60));
-        return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
+        return remaining(unix, now);
     }
 
     _icon(name) {
@@ -120,19 +162,27 @@ export default class MawaqitExtension extends Extension {
         return item;
     }
 
-    _action(text, callback) {
+    _action(text, callback, menu = this._button.menu) {
         const item = new PopupMenu.PopupMenuItem(text);
         item.connect('activate', callback);
-        this._button.menu.addMenuItem(item);
+        menu.addMenuItem(item);
         return item;
     }
 
-    _entry(hint, callback) {
+    _entry(hint, callback, menu = this._button.menu, withLocation = false) {
         const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         const entry = new St.Entry({hint_text: hint, can_focus: true, x_expand: true, style_class: 'mawaqit-entry'});
         entry.clutter_text.connect('activate', callback);
         item.add_child(entry);
-        this._button.menu.addMenuItem(item);
+        if (withLocation) {
+            this._locationButton = new St.Button({
+                child: this._icon('find-location-symbolic'), can_focus: true,
+                accessible_name: 'Use current location', style_class: 'mawaqit-location-button',
+            });
+            this._locationButton.connect('clicked', () => this._requestCurrentLocation());
+            item.add_child(this._locationButton);
+        }
+        menu.addMenuItem(item);
         return entry;
     }
 
@@ -147,7 +197,11 @@ export default class MawaqitExtension extends Extension {
                 });
             });
             if (!this._alive) throw new Error('Extension disabled');
-            if (message.status_code !== 200) throw new Error(`Service returned ${message.status_code}. Try again later.`);
+            if (message.status_code !== 200) {
+                const error = new Error(`Service returned ${message.status_code}. Try again later.`);
+                error.statusCode = message.status_code;
+                throw error;
+            }
             return new TextDecoder().decode(bytes.get_data());
         } finally { this._requests.delete(cancel); }
     }
@@ -167,10 +221,10 @@ export default class MawaqitExtension extends Extension {
                 return;
             }
             let params;
-            if (query.includes(',')) {
-                const parts = query.split(',').map(s => s.trim());
-                const [lat, lon] = parts.map(Number);
-                if (parts.length !== 2 || parts.some(s => !s) || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180)
+            const parts = query.split(',').map(s => s.trim());
+            const [lat, lon] = parts.map(Number);
+            if (parts.length === 2 && parts.every(Boolean) && Number.isFinite(lat) && Number.isFinite(lon)) {
+                if (Math.abs(lat) > 90 || Math.abs(lon) > 180)
                     throw new Error('Enter valid latitude, longitude coordinates.');
                 params = `lat=${lat}&lon=${lon}`;
             } else {
@@ -188,7 +242,7 @@ export default class MawaqitExtension extends Extension {
             if (!this._alive || generation !== this._searchGeneration) return;
             if (!Array.isArray(results)) throw new Error('The search service returned an unexpected response.');
             const mosques = results.filter(m => m.slug && m.name && !m.closed);
-            this._status.label.text = mosques.length ? `${mosques.length} mosques found; showing up to 10.` : 'No mosques found. Try another city or paste a mosque URL.';
+            this._status.label.text = mosques.length ? `${mosques.length} mosques found; showing up to 10.` : 'No Mawaqit mosques found. Try another search, or use calculated times below.';
             for (const mosque of mosques.slice(0, 10)) {
                 const item = new PopupMenu.PopupBaseMenuItem();
                 item.add_style_class_name('mawaqit-result');
@@ -207,13 +261,108 @@ export default class MawaqitExtension extends Extension {
                 item.connect('activate', () => this._choose(mosque.slug, mosque.name));
                 this._results.addMenuItem(item);
             }
-        } catch (error) { if (generation === this._searchGeneration) this._error(error); }
+        } catch (error) {
+            if (generation !== this._searchGeneration) return;
+            if (error.statusCode)
+                this._error(new Error('Mawaqit search is temporarily unavailable. You can still use calculated times below.'));
+            else
+                this._error(error);
+        }
     }
 
     _choose(slug, name) {
         this._searchGeneration++;
         // Keep the current mosque and calendar until the replacement loads successfully.
         this._refresh({slug: mosqueSlug(slug), name});
+    }
+
+    _chooseCalculated() {
+        const query = this._calculatedEntry.get_text().trim();
+        if (query.length < 2 || /^https?:\/\//i.test(query)) {
+            this._error(new Error('Enter the location as “City, Country” or “latitude, longitude”.'));
+            return;
+        }
+        this._searchGeneration++;
+        this._refreshCalculated(query, query);
+    }
+
+    _requestCurrentLocation() {
+        if (this._locationCancel) return;
+        const cancel = new Gio.Cancellable();
+        this._locationCancel = cancel;
+        this._locationButton.reactive = false;
+        this._currentLocationAction.setSensitive(false);
+        this._status.label.text = 'Requesting your current location…';
+        this._locationTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 30, () => {
+            this._locationTimeout = null;
+            cancel.cancel();
+            this._finishLocation();
+            this._error(new Error('Location request timed out. Try again or enter a city.'));
+            return GLib.SOURCE_REMOVE;
+        });
+        try {
+            Geoclue.Simple.new('org.gnome.Shell', Geoclue.AccuracyLevel.CITY, cancel, (_source, result) => {
+                // Always finish the async result; ignore callbacks from an earlier enable/request.
+                let geoclue;
+                try {
+                    geoclue = Geoclue.Simple.new_finish(result);
+                    if (!this._alive || this._locationCancel !== cancel) {
+                        geoclue.get_client()?.call_stop(null, null);
+                        return;
+                    }
+                    const location = geoclue.get_location();
+                    const latitude = location?.get_latitude();
+                    const longitude = location?.get_longitude();
+                    if (!Number.isFinite(latitude) || !Number.isFinite(longitude))
+                        throw new Error('Location Services did not return valid coordinates.');
+                    this._searchGeneration++;
+                    this._results.removeAll();
+                    const coordinates = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+                    this._searchEntry.set_text(coordinates);
+                    this._calculatedEntry.set_text(coordinates);
+                    // Same flow as a typed location: nearby mosques plus the calculated option.
+                    this._search();
+                } catch (error) {
+                    if (this._alive && this._locationCancel === cancel) this._locationError(error);
+                } finally {
+                    if (geoclue && this._locationCancel === cancel) geoclue.get_client()?.call_stop(null, null);
+                    if (this._locationCancel === cancel) this._finishLocation();
+                }
+            });
+        } catch (error) {
+            this._finishLocation();
+            this._locationError(error);
+        }
+    }
+
+    _finishLocation() {
+        if (this._locationTimeout) GLib.Source.remove(this._locationTimeout);
+        this._locationTimeout = null;
+        this._locationCancel = null;
+        if (this._alive) {
+            this._locationButton.reactive = true;
+            this._currentLocationAction.setSensitive(true);
+        }
+    }
+
+    _locationError(error) {
+        console.warn(`Mawaqit location request: ${error.message}`);
+        this._error(new Error('Could not access your location. Enable Location Services for GNOME Shell in Settings → Privacy, or enter “City, Country” below.'));
+    }
+
+    _hasLocation() {
+        return Boolean(this._state.slug || this._state.calculationQuery);
+    }
+
+    _isCalculated() {
+        return this._state.source === 'aladhan' || (!this._state.slug && Boolean(this._state.calculationQuery));
+    }
+
+    _refreshCurrent() {
+        if (this._isCalculated() && this._state.calculationQuery)
+            this._refreshCalculated(this._state.calculationQuery, this._state.name);
+        else
+            this._refresh();
     }
 
     async _refresh(candidate = this._state) {
@@ -225,12 +374,15 @@ export default class MawaqitExtension extends Extension {
             const data = parseCalendar(await this._get(`https://mawaqit.net/en/m/${encodeURIComponent(candidate.slug)}`));
             schedule(data);
             if (!this._alive || generation !== this._generation) return;
-            if (candidate.slug !== this._state.slug) {
+            if (candidate.slug !== this._state.slug || this._isCalculated()) {
                 this._lastNotificationCheck = Math.floor(Date.now() / 1000);
                 this._notificationSeen.clear();
             }
             this._data = data;
-            this._state = {notificationsEnabled: this._state.notificationsEnabled !== false, slug: candidate.slug, name: candidate.name, calendar: data, fetched: Date.now(), year: new Date().getUTCFullYear()};
+            this._state = {notificationsEnabled: this._state.notificationsEnabled !== false,
+                iconOnlyMenuBar: this._state.iconOnlyMenuBar === true,
+                source: 'mawaqit', slug: candidate.slug, name: candidate.name,
+                calendar: data, fetched: Date.now(), year: new Date().getUTCFullYear()};
             this._status.label.text = '';
             this._results.removeAll();
             this._searchEntry.set_text('');
@@ -238,6 +390,52 @@ export default class MawaqitExtension extends Extension {
             this._render();
         } catch (error) {
             if (generation === this._generation) this._error(error);
+        }
+    }
+
+    async _refreshCalculated(query, name) {
+        if (!query || !this._alive) return;
+        const generation = ++this._generation;
+        this._lastAttempt = Date.now();
+        this._status.label.text = 'Calculating prayer times…';
+        try {
+            const year = new Date().getUTCFullYear();
+            const parts = query.split(',').map(s => s.trim());
+            const [lat, lon] = parts.map(Number);
+            let url;
+            if (parts.length === 2 && parts.every(Boolean) && Number.isFinite(lat) && Number.isFinite(lon)) {
+                if (Math.abs(lat) > 90 || Math.abs(lon) > 180)
+                    throw new Error('Enter valid latitude, longitude coordinates.');
+                url = `https://api.aladhan.com/v1/calendar/${year}?latitude=${lat}&longitude=${lon}`;
+            } else {
+                if (query.length < 2) throw new Error('Enter a city, address or coordinates for calculated times.');
+                url = `https://api.aladhan.com/v1/calendarByAddress/${year}?address=${encodeURIComponent(query)}`;
+            }
+            const result = parseCalculatedCalendar(JSON.parse(await this._get(url)));
+            schedule(result.calendar);
+            if (!this._alive || generation !== this._generation) return;
+            const previous = this._state.calculationQuery ?? this._state.slug;
+            if (query !== previous) {
+                this._lastNotificationCheck = Math.floor(Date.now() / 1000);
+                this._notificationSeen.clear();
+            }
+            this._data = result.calendar;
+            this._state = {notificationsEnabled: this._state.notificationsEnabled !== false,
+                iconOnlyMenuBar: this._state.iconOnlyMenuBar === true,
+                source: 'aladhan', calculationQuery: query, calculationMethod: result.method,
+                name: name ?? query, calendar: result.calendar, fetched: Date.now(), year};
+            this._status.label.text = '';
+            this._results.removeAll();
+            this._calculatedEntry.set_text('');
+            this._searchEntry.set_text('');
+            this._save();
+            this._render();
+        } catch (error) {
+            if (generation !== this._generation) return;
+            if (error.statusCode)
+                this._error(new Error('AlAdhan could not calculate that location right now. Check it as “City, Country”, use latitude and longitude, or try current location.'));
+            else
+                this._error(error);
         }
     }
 
@@ -249,9 +447,11 @@ export default class MawaqitExtension extends Extension {
     }
 
     _render() {
-        const active = Boolean(this._state.slug);
-        for (const item of [this._prayerSeparator, this._title, this._subtitle, this._upcomingSummary, this._todayHeading, this._rows, this._nightHeading, this._nightRows, this._notificationSwitch, this._refreshAction])
+        const active = this._hasLocation();
+        for (const item of [this._prayerSeparator, this._title, this._subtitle, this._source, this._upcomingSummary, this._todayHeading, this._rows, this._nightHeading, this._nightRows, this._notificationSwitch, this._refreshAction])
             item.actor.visible = active;
+        const calculated = this._isCalculated();
+        this._source.actor.visible = active && calculated;
         this._status.actor.visible = Boolean(this._status.label.text);
         this._upcomingSummary.actor.visible = false;
         this._panelLabel.text = '';
@@ -261,26 +461,22 @@ export default class MawaqitExtension extends Extension {
             if (this._state.year !== new Date().getUTCFullYear()) throw new Error('Refresh required for the new year.');
             const view = schedule(this._data);
             this._rows.removeAll();
-            this._title.label.text = this._state.name ?? this._state.slug;
+            this._title.label.text = this._state.name ?? this._state.slug ?? this._state.calculationQuery;
             const cached = Date.now() - this._state.fetched > 3600000 ? ' · cached' : '';
             this._subtitle.label.text = `${view.date} · ${view.timezone}${cached}`;
+            this._source.label.text = calculated
+                ? `Calculated by AlAdhan · ${this._state.calculationMethod ?? 'Automatic local method'}\nMay differ from your local mosque or religious authority.` : '';
             const {current, night, now} = view;
-            const nextDescription = view.next ? `Next: ${view.next.name} at ${view.next.time}${view.today.includes(view.next) ? '' : ' tomorrow'}` : '';
-            let panelStatus;
-            if (current) panelStatus = `${current.name} · ${this._remaining(current.end, now)} left`;
-            else if (night.lastThirdActive) panelStatus = `Last third · ${this._remaining(night.end, now)}`;
-            else if (night.active && now >= night.midnight) panelStatus = `Last third in ${this._remaining(night.lastThird, now)}`;
-            else if (view.next) panelStatus = `${view.next.name} in ${this._remaining(view.next.unix, now)}`;
+            const nextDescription = nextSummary(view);
+            const panelStatus = panelTitle(view);
             this._upcomingSummary.label.text = nextDescription;
-            this._upcomingSummary.actor.visible = Boolean(!current && nextDescription);
-            this._panelLabel.text = panelStatus ?? '';
-            this._panelLabel.visible = Boolean(panelStatus);
+            this._upcomingSummary.actor.visible = Boolean(nextDescription);
+            this._panelLabel.text = panelStatus;
+            this._panelLabel.visible = Boolean(panelStatus) && this._state.iconOnlyMenuBar !== true;
             const icons = ['weather-clear-night-symbolic', 'weather-clear-symbolic',
                 'weather-clear-symbolic', 'weather-few-clouds-symbolic',
                 'weather-few-clouds-night-symbolic', 'weather-clear-night-symbolic'];
-            const prayers = current && !view.today.includes(current) ? [current, ...view.today] : view.today;
-            for (const prayer of prayers) {
-                if (prayer.sunrise) continue;
+            for (const prayer of displayPrayers(view)) {
                 const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
                 item.add_style_class_name('mawaqit-prayer-row');
                 item.add_style_class_name('mawaqit-info');
@@ -291,21 +487,15 @@ export default class MawaqitExtension extends Extension {
                     const details = new St.BoxLayout({vertical: true, x_expand: true});
                     const headline = new St.BoxLayout({x_expand: true, style_class: 'mawaqit-current-headline'});
                     headline.add_child(new St.Label({text: prayer.name, x_expand: true}));
-                    headline.add_child(new St.Label({text: `${this._remaining(prayer.end, now)} left`}));
+                    headline.add_child(new St.Label({text: prayer.time}));
                     details.add_child(headline);
                     const end = new St.Label({text: `Ends at ${prayer.endTime}${prayer.name === 'Isha' ? ' · Islamic midnight' : ''}`, style_class: 'mawaqit-current-detail'});
                     end.clutter_text.line_wrap = true;
                     details.add_child(end);
-                    if (nextDescription) {
-                        const next = new St.Label({text: nextDescription, style_class: 'mawaqit-current-detail'});
-                        next.clutter_text.line_wrap = true;
-                        details.add_child(next);
-                    }
                     item.add_child(details);
                 } else {
                     item.add_child(new St.Label({text: prayer.name, x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
-                    const status = prayer.end <= now ? `Ended ${prayer.endTime}`
-                        : `Ends ${prayer.endTime} · ${this._remaining(prayer.end, now)}`;
+                    const status = prayerDetail(prayer, view);
                     item.add_child(new St.Label({text: status, style_class: 'mawaqit-prayer-detail', y_align: Clutter.ActorAlign.CENTER}));
                     if (prayer === view.next) item.add_style_class_name('mawaqit-next');
                     else if (prayer.end <= now) item.add_style_class_name('mawaqit-past');
@@ -324,7 +514,7 @@ export default class MawaqitExtension extends Extension {
                 item.add_style_class_name('mawaqit-night-row');
                 item.add_child(new St.Label({text: name, x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
                 const selected = milestones.phase === key;
-                const status = selected ? `In ${this._remaining(start, now)}`
+                const status = selected ? `in ${this._remaining(start, now)}`
                     : milestones.active && start <= now ? 'Passed' : '';
                 item.add_child(new St.Label({text: status, style_class: 'mawaqit-prayer-detail', y_align: Clutter.ActorAlign.CENTER}));
                 item.add_child(new St.Label({text: time, style_class: 'mawaqit-prayer-time', y_align: Clutter.ActorAlign.CENTER}));
@@ -336,6 +526,7 @@ export default class MawaqitExtension extends Extension {
             this._rows.removeAll();
             this._nightRows.removeAll();
             this._nightHeading.actor.visible = false;
+            this._source.actor.visible = false;
             this._panelLabel.visible = false;
             this._upcomingSummary.actor.visible = false;
             this._error(error);
@@ -350,6 +541,8 @@ export default class MawaqitExtension extends Extension {
         this._timer = null;
         for (const request of this._requests) request.cancel();
         this._session.abort();
+        this._locationCancel?.cancel();
+        this._finishLocation();
         this._button.destroy();
         this._button = null;
         this._state = null;

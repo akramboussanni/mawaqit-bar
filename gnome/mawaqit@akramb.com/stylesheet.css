@@ -1,8 +1,13 @@
 .mawaqit-menu { width: 360px; }
-.mawaqit-entry { min-width: 280px; padding: 8px 10px; border-radius: 12px; }
+.mawaqit-entry { min-width: 230px; padding: 8px 10px; border-radius: 12px; }
 .mawaqit-icon { icon-size: 18px; }
 .mawaqit-status { font-size: 0.9em; }
 .mawaqit-status StLabel { max-width: 340px; }
+.mawaqit-calculated-menu { spacing: 10px; }
+.mawaqit-calculated-intro { font-size: 0.85em; opacity: 190; }
+.mawaqit-calculated-intro StLabel { max-width: 310px; }
+.mawaqit-source { font-size: 0.78em; opacity: 190; padding-top: 1px; padding-bottom: 4px; }
+.mawaqit-source StLabel { max-width: 340px; }
 .mawaqit-mosque { font-weight: bold; font-size: 1.1em; padding-bottom: 3px; spacing: 10px; }
 .mawaqit-mosque StLabel { max-width: 310px; }
 .mawaqit-subtitle { opacity: 180; font-size: 0.85em; padding-top: 0; padding-bottom: 6px; }
@@ -33,3 +38,7 @@
 
 .mawaqit-night-active { font-weight: bold; }
 .mawaqit-night-active .mawaqit-prayer-detail { opacity: 255; }
+
+.mawaqit-location-button { padding: 8px; border-radius: 12px; }
+.mawaqit-location-button:hover, .mawaqit-location-button:focus { background-color: rgba(128, 128, 128, 0.25); }
+.mawaqit-location-button:insensitive { opacity: 100; }

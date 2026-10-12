@@ -27,6 +27,34 @@ export function parseCalendar(html) {
     throw new Error('The prayer calendar is incomplete.');
 }
 
+export function parseCalculatedCalendar(payload) {
+    if (!payload || payload.code !== 200 || !payload.data || typeof payload.data !== 'object')
+        throw new Error('The calculated prayer-time service returned an unexpected response.');
+    const calendar = Array.from({length: 12}, () => ({}));
+    let timezone = null, method = null;
+    for (let month = 1; month <= 12; month++) {
+        const days = payload.data[String(month)];
+        if (!Array.isArray(days) || !days.length)
+            throw new Error('Calculated prayer times are incomplete for this year.');
+        for (const item of days) {
+            const day = Number(item?.date?.gregorian?.day);
+            if (!Number.isInteger(day) || day < 1 || day > 31 || !item?.timings)
+                throw new Error('A calculated prayer-time entry is invalid.');
+            const times = NAMES.map(name => {
+                const match = /^(\d{1,2}:\d{2})/.exec(item.timings[name]);
+                if (!match) throw new Error('A calculated prayer time is invalid.');
+                return match[1];
+            });
+            calendar[month - 1][String(day)] = times;
+            timezone ??= item.meta?.timezone;
+            method ??= item.meta?.method?.name;
+        }
+    }
+    if (!timezone || !GLib.TimeZone.new_identifier(timezone))
+        throw new Error('The calculated location has an invalid timezone.');
+    return {calendar: {timezone, calendar}, method: method ?? 'Automatic local method'};
+}
+
 export function schedule(data, now = GLib.DateTime.new_now_utc()) {
     const zone = GLib.TimeZone.new_identifier(data.timezone);
     if (!zone) throw new Error('The mosque timezone is invalid.');

@@ -2,7 +2,7 @@
 set -eu
 
 extension_id='mawaqit@akramb.com'
-release_url="https://github.com/akramboussanni/mawaqit-gnome/releases/latest/download/${extension_id}.shell-extension.zip"
+release_url="https://github.com/akramboussanni/mawaqit-bar/releases/latest/download/${extension_id}.shell-extension.zip"
 
 if [ "$(id -u)" -eq 0 ]; then
     echo 'Run this as your normal GNOME user, without sudo.' >&2
