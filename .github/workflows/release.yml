@@ -14,7 +14,7 @@ jobs:
   gnome:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install GJS
         run: sudo apt-get update && sudo apt-get install -y gjs
       - name: Test
@@ -26,7 +26,7 @@ jobs:
       - name: Package extension
         working-directory: gnome/mawaqit@akramb.com
         run: zip -r "$GITHUB_WORKSPACE/mawaqit@akramb.com.shell-extension.zip" . -x 'tests/*'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: gnome
           path: mawaqit@akramb.com.shell-extension.zip
@@ -34,7 +34,7 @@ jobs:
   macos:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Test
         working-directory: macos
         run: swift test
@@ -44,6 +44,10 @@ jobs:
           CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
         run: |
+          if [ -z "$CERTIFICATE_P12" ]; then
+            echo "::error::Signing secrets are not set. See macos/README.md → Release from GitHub Actions."
+            exit 1
+          fi
           keychain="$RUNNER_TEMP/signing.keychain-db"
           keychain_password=$(openssl rand -base64 24)
           printf '%s' "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
@@ -72,7 +76,7 @@ jobs:
         if: github.event_name == 'pull_request'
         working-directory: macos
         run: ./build-app.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: macos
           path: |
@@ -85,7 +89,7 @@ jobs:
     needs: [gnome, macos]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           merge-multiple: true
       - name: Publish GitHub release
