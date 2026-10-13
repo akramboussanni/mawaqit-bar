@@ -30,7 +30,7 @@ Islamic midnight, the last third of the night, and notifications.
 The two versions only differ in styling and platform integration. GNOME uses
 Shell's popup menu styling and loads at login when the extension is enabled. macOS
 uses Liquid Glass on macOS 26+ (with a material fallback on older releases), keeps
-toggles in a Settings window, and has a Launch at Login switch.
+settings inside its glass panel, and has a Launch at Login switch.
 
 ## GNOME
 

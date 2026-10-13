@@ -5,7 +5,6 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 APP_DIR="$SCRIPT_DIR/dist/Mawaqit.app"
 ZIP_PATH="$SCRIPT_DIR/dist/Mawaqit.zip"
 DMG_PATH="$SCRIPT_DIR/dist/Mawaqit.dmg"
-DMG_ROOT="$SCRIPT_DIR/.build/dmg-root"
 NOTARY_PROFILE_NAME="${NOTARY_PROFILE:-mawaqit-release}"
 
 # CI passes Apple credentials through the environment; locally a Keychain profile is used.
@@ -38,12 +37,17 @@ rm -f "$ZIP_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 
-rm -rf "$DMG_ROOT"
+# dmgbuild writes the Finder layout (background, icon positions) without needing a GUI session.
+DMGBUILD=$(command -v dmgbuild || true)
+if [ -z "$DMGBUILD" ]; then
+    python3 -m venv "$SCRIPT_DIR/.build/dmg-venv"
+    "$SCRIPT_DIR/.build/dmg-venv/bin/pip" install --quiet dmgbuild
+    DMGBUILD="$SCRIPT_DIR/.build/dmg-venv/bin/dmgbuild"
+fi
 rm -f "$DMG_PATH"
-mkdir -p "$DMG_ROOT"
-ditto "$APP_DIR" "$DMG_ROOT/Mawaqit.app"
-ln -s /Applications "$DMG_ROOT/Applications"
-hdiutil create -volname "Mawaqit" -srcfolder "$DMG_ROOT" -ov -format UDZO "$DMG_PATH"
+"$DMGBUILD" -s "$SCRIPT_DIR/dmg-settings.py" -D app="$APP_DIR" \
+    -D icon="$SCRIPT_DIR/Assets/Mawaqit.icns" \
+    -D background="$SCRIPT_DIR/Assets/dmg-background.tiff" Mawaqit "$DMG_PATH"
 codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG_PATH"
 notarize "$DMG_PATH"
 xcrun stapler staple "$DMG_PATH"

@@ -8,6 +8,27 @@ struct MenuContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if store.showingSettings {
+                SettingsPage(store: store)
+            } else {
+                schedulePage
+            }
+        }
+        .padding(16)
+        .frame(width: 340)
+        .fixedSize(horizontal: false, vertical: true)
+        .controlSize(.regular)
+        .background(GeometryReader { geometry in
+            Color.clear.preference(key: ContentHeightKey.self, value: geometry.size.height)
+        })
+        .onPreferenceChange(ContentHeightKey.self) { height in
+            guard height > 0 else { return }
+            onSizeChange?(ceil(height))
+        }
+    }
+
+    @ViewBuilder
+    private var schedulePage: some View {
             search
             if !store.results.isEmpty || store.calculatedSuggestion != nil {
                 // Search results have their own bounded area; the schedule never scrolls.
@@ -28,18 +49,6 @@ struct MenuContentView: View {
                     .help(store.status)
             }
             controls
-        }
-        .padding(16)
-        .frame(width: 340)
-        .fixedSize(horizontal: false, vertical: true)
-        .controlSize(.regular)
-        .background(GeometryReader { geometry in
-            Color.clear.preference(key: ContentHeightKey.self, value: geometry.size.height)
-        })
-        .onPreferenceChange(ContentHeightKey.self) { height in
-            guard height > 0 else { return }
-            onSizeChange?(ceil(height))
-        }
     }
 
     private var search: some View {
@@ -268,38 +277,67 @@ private struct NativeSearchField: NSViewRepresentable {
     }
 }
 
-struct SettingsContentView: View {
+/// Settings live inside the same glass panel as the schedule.
+struct SettingsPage: View {
     @ObservedObject var store: MawaqitStore
 
     var body: some View {
-        Form {
-            Section("General") {
-                Toggle("Launch at login", isOn: Binding(get: { store.launchAtLogin }, set: store.setLaunchAtLogin))
-                Toggle("Show only the icon in the menu bar", isOn: Binding(get: { store.iconOnlyMenuBar }, set: store.setIconOnlyMenuBar))
-            }
-            if store.hasLocation {
-                Section("Prayer time source") {
-                    Text(store.isCalculated ? "Calculated by AlAdhan" : "Mosque schedule from Mawaqit")
-                    if store.isCalculated {
-                        Text(store.state.calculationMethod ?? "Automatic local method")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Text("Calculated times may differ from your local mosque or religious authority.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
+        GlassControls {
+            HStack(spacing: 10) {
+                Button { store.showingSettings = false } label: {
+                    Image(systemName: "chevron.left")
                 }
-            }
-            Section("Prayer reminders") {
-                Toggle("Enable notifications", isOn: Binding(get: { store.state.notificationsEnabled }, set: store.setNotifications))
-                Text("Notification delivery also depends on your macOS notification settings.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if !store.status.isEmpty {
-                Text(store.status).font(.caption).foregroundStyle(.secondary)
+                .modifier(SystemGlassButtons(isCircular: true))
+                .help("Back")
+                .accessibilityLabel("Back")
+                Text("Settings").font(.headline)
+                Spacer()
             }
         }
-        .formStyle(.grouped)
-        .toggleStyle(.checkbox)
-        .frame(width: 440, height: 400)
+        section("General") {
+            toggle("Launch at login", isOn: Binding(get: { store.launchAtLogin }, set: store.setLaunchAtLogin))
+            Divider()
+            toggle("Icon only in menu bar", isOn: Binding(get: { store.iconOnlyMenuBar }, set: store.setIconOnlyMenuBar))
+        }
+        section("Prayer reminders") {
+            toggle("Notifications", isOn: Binding(get: { store.state.notificationsEnabled }, set: store.setNotifications))
+            Text("Alerts at each prayer and the last third of the night. Delivery also depends on your macOS notification settings.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if store.hasLocation {
+            section("Prayer time source") {
+                Text(store.isCalculated ? "Calculated by AlAdhan" : "Mosque schedule from Mawaqit")
+                if store.isCalculated {
+                    Text(store.state.calculationMethod ?? "Automatic local method")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text("Calculated times may differ from your local mosque or religious authority.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        if !store.status.isEmpty {
+            Text(store.status).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+        }
+    }
+
+    private func toggle(_ title: String, isOn: Binding<Bool>) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Toggle(title, isOn: isOn).labelsHidden().toggleStyle(.switch).controlSize(.small)
+        }
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) { content() }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
+        }
     }
 }
 

@@ -13,6 +13,7 @@ final class MawaqitStore: ObservableObject {
     @Published var status = "Enter a mosque or city and press Return"
     @Published var isLoading = false
     @Published var isLocating = false
+    @Published var showingSettings = false
     @Published var statusTitle = ""
     @Published var iconOnlyMenuBar = UserDefaults.standard.bool(forKey: "iconOnlyMenuBar")
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled

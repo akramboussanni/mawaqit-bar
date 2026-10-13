@@ -92,7 +92,9 @@ final class GlassPanel: NSPanel, NSWindowDelegate {
         removeMonitors()
     }
 
-    override func cancelOperation(_ sender: Any?) { dismiss() }
+    /// Escape handler; returns true when it consumed the key (e.g. leaving Settings).
+    var onCancel: (() -> Bool)?
+    override func cancelOperation(_ sender: Any?) { if onCancel?() != true { dismiss() } }
     func windowDidResignKey(_ notification: Notification) { dismiss() }
 
     private func removeMonitors() {

@@ -10,7 +10,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var statusItem: NSStatusItem?
     private let popover = GlassPanel()
     private var mainWindow: NSWindow?
-    private var settingsWindow: NSWindow?
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
     private var started = false
@@ -78,6 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             self?.popover.resizeContent(to: NSSize(width: 340, height: height))
         }))
         UNUserNotificationCenter.current().delegate = self
+        popover.onCancel = { [weak self] in
+            guard let self, self.store.showingSettings else { return false }
+            self.store.showingSettings = false
+            return true
+        }
 
         store.$statusTitle.combineLatest(store.$iconOnlyMenuBar).sink { [weak self] title, iconOnly in
             guard let self, let statusItem = self.statusItem else { return }
@@ -107,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             popover.dismiss()
         } else {
             store.tick()
+            store.showingSettings = false
             popover.show(below: button)
             NSApp.activate(ignoringOtherApps: true)
         }
@@ -153,17 +158,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     @objc private func showSettings() {
-        popover.dismiss()
-        if settingsWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 300),
-                                  styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            window.title = "Mawaqit Settings"
-            window.isReleasedWhenClosed = false
-            window.contentViewController = NSHostingController(rootView: SettingsContentView(store: store))
-            window.center()
-            settingsWindow = window
+        store.showingSettings = true
+        if mainWindow?.isVisible == true && !popover.isVisible {
+            mainWindow?.makeKeyAndOrderFront(nil)
+        } else if !popover.isVisible, let button = statusItem?.button {
+            popover.show(below: button)
         }
-        settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 

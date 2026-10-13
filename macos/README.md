@@ -19,7 +19,7 @@ Search uses AppKit’s native search field, and compact buttons use the system L
 The menu-bar panel is 340 points wide and sizes to its content. On macOS 26 and later,
 its background uses NSGlassEffectView; icon buttons are circular and labeled buttons
 use capsules. Escape, clicking outside, or switching apps dismisses the panel.
-Settings open in a separate window through Settings… or Command–Comma.
+Settings open inside the same glass panel (gear button, Settings…, or Command–Comma); the back button or Escape returns to the schedule.
 The location arrow beside search requests a one-time location, searches nearby
 Mawaqit mosques, and offers AlAdhan calculated times. Your saved schedule changes
 only when you choose a result.
@@ -35,7 +35,7 @@ open dist/Mawaqit.app
 ```
 
 Left-click the menu-bar item to open Mawaqit and enable **Launch at Login** in the
-Settings window. Right-click the menu-bar item to open the main window, settings, or quit. Move the app into `/Applications`
+settings panel. Right-click the menu-bar item to open the main window, settings, or quit. Move the app into `/Applications`
 before enabling automatic launch so macOS keeps a stable login-item path.
 
 ## Release from GitHub Actions

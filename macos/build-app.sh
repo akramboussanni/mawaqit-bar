@@ -35,6 +35,18 @@ if [ -n "${APP_VERSION:-}" ]; then
     plutil -replace CFBundleVersion -string "${APP_BUILD:-1}" "$APP_DIR/Contents/Info.plist"
 fi
 cp "$SCRIPT_DIR/Assets/Mawaqit.icns" "$APP_DIR/Contents/Resources/Mawaqit.icns"
+# macOS 26+ frames legacy .icns icons, so compile the Icon Composer icon when Xcode is available.
+if xcrun --find actool >/dev/null 2>&1; then
+    xcrun actool "$SCRIPT_DIR/Assets/AppIcon.icon" --compile "$APP_DIR/Contents/Resources" \
+        --platform macosx --minimum-deployment-target 13.0 --app-icon AppIcon \
+        --output-partial-info-plist "$SCRIPT_DIR/.build/icon-info.plist" >/dev/null
+    test -f "$APP_DIR/Contents/Resources/Assets.car"
+    plutil -replace CFBundleIconName -string AppIcon "$APP_DIR/Contents/Info.plist"
+    # actool also emits a fallback AppIcon.icns; keep the hand-tuned Mawaqit.icns instead.
+    rm -f "$APP_DIR/Contents/Resources/AppIcon.icns"
+else
+    echo "actool not found (install Xcode); using the legacy icon only." >&2
+fi
 if [ -n "${SIGN_IDENTITY:-}" ]; then
     codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP_DIR"
 else
