@@ -63,7 +63,7 @@ struct MenuContentView: View {
                 if store.isLocating { ProgressView().controlSize(.small) }
                 else { Image(systemName: "location") }
             }
-            .modifier(CircularButton())
+            .modifier(RoundGlassButton())
             .disabled(store.isLocating || store.isLoading || store.locationUnavailable != nil)
             .help(store.locationUnavailable ?? "Use current location")
             .accessibilityLabel("Use current location")
@@ -166,7 +166,7 @@ struct MenuContentView: View {
                     Label("Settings…", systemImage: "gearshape")
                 }
                 .labelStyle(.iconOnly)
-                .modifier(CircularButton())
+                .modifier(RoundGlassButton())
                 .help("Settings… (⌘,)")
                 .keyboardShortcut(",")
                 .popover(isPresented: $store.showingSettings, arrowEdge: .top) {
@@ -338,9 +338,15 @@ private struct ContentHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
-/// Icon-only buttons keep the standard system button in a circular shape.
-private struct CircularButton: ViewModifier {
+/// Icon-only buttons use the system Liquid Glass button (NSBezelStyle.glass) on macOS 26+.
+private struct RoundGlassButton: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
-        if #available(macOS 14.0, *) { content.buttonBorderShape(.circle) } else { content }
+        if #available(macOS 26.0, *) {
+            content.buttonStyle(.glass).buttonBorderShape(.circle)
+        } else if #available(macOS 14.0, *) {
+            content.buttonBorderShape(.circle)
+        } else {
+            content
+        }
     }
 }
