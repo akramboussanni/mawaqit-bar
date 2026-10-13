@@ -9,7 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private let store = MawaqitStore()
     private var statusItem: NSStatusItem?
     private let popover = GlassPanel()
-    private var mainWindow: NSWindow?
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
     private var started = false
@@ -31,27 +30,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        popover.dismiss()
-        if mainWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 340, height: 440),
-                                  styleMask: [.titled, .closable, .miniaturizable],
-                                  backing: .buffered, defer: false)
-            window.title = "Mawaqit"
-            window.isReleasedWhenClosed = false
-            window.setFrameAutosaveName("MawaqitMainWindow")
-            window.backgroundColor = .clear
-            window.isOpaque = false
-            window.titlebarAppearsTransparent = true
-            window.contentViewController = GlassContentController(rootView: MenuContentView(store: store, openSettings: { [weak self] in self?.showSettings() }, onSizeChange: { [weak window] height in
-                window?.setContentSize(NSSize(width: 340, height: height))
-            }))
-            window.center()
-            mainWindow = window
-        }
-        store.tick()
-        mainWindow?.makeKeyAndOrderFront(nil)
-        sender.activate(ignoringOtherApps: true)
+        // Opening the app again shows the same glass panel, even if the menu-bar icon is hidden.
+        store.showingSettings = false
+        showPanel()
         return false
+    }
+
+    private func showPanel() {
+        store.tick()
+        if !popover.isVisible { popover.show(below: statusItem?.button) }
     }
 
     private func start() {
@@ -110,10 +97,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         } else if popover.isVisible {
             popover.dismiss()
         } else {
-            store.tick()
             store.showingSettings = false
-            popover.show(below: button)
-            NSApp.activate(ignoringOtherApps: true)
+            showPanel()
         }
     }
 
@@ -159,12 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     @objc private func showSettings() {
         store.showingSettings = true
-        if mainWindow?.isVisible == true && !popover.isVisible {
-            mainWindow?.makeKeyAndOrderFront(nil)
-        } else if !popover.isVisible, let button = statusItem?.button {
-            popover.show(below: button)
-        }
-        NSApp.activate(ignoringOtherApps: true)
+        showPanel()
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

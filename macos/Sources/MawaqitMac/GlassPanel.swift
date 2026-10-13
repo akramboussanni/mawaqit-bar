@@ -68,13 +68,18 @@ final class GlassPanel: NSPanel, NSWindowDelegate {
         setFrameOrigin(NSPoint(x: frame.minX, y: top - frame.height))
     }
 
-    func show(below button: NSStatusBarButton) {
-        guard let anchorWindow = button.window else { return }
-        let anchor = anchorWindow.convertToScreen(button.convert(button.bounds, to: nil))
-        let screen = anchorWindow.screen ?? NSScreen.main
-        let visible = screen?.visibleFrame ?? anchor
-        let x = min(max(anchor.midX - frame.width / 2, visible.minX + 8), visible.maxX - frame.width - 8)
-        setFrameOrigin(NSPoint(x: x, y: anchor.minY - frame.height - 6))
+    /// Shows the panel under the menu-bar button, or at the top centre of the screen
+    /// when a menu-bar manager has hidden the button.
+    func show(below button: NSStatusBarButton?) {
+        let anchorWindow = button?.window
+        if let button, let anchorWindow, anchorWindow.occlusionState.contains(.visible) {
+            let anchor = anchorWindow.convertToScreen(button.convert(button.bounds, to: nil))
+            let visible = (anchorWindow.screen ?? NSScreen.main)?.visibleFrame ?? anchor
+            let x = min(max(anchor.midX - frame.width / 2, visible.minX + 8), visible.maxX - frame.width - 8)
+            setFrameOrigin(NSPoint(x: x, y: anchor.minY - frame.height - 6))
+        } else if let visible = NSScreen.main?.visibleFrame {
+            setFrameOrigin(NSPoint(x: visible.midX - frame.width / 2, y: visible.maxY - frame.height - 6))
+        }
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
         removeMonitors()
