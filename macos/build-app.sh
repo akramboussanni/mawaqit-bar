@@ -29,6 +29,11 @@ BUILD_DIR=$("$SWIFT_COMMAND" build --sdk "$SDK_PATH" -c release -debug-info-form
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BUILD_DIR/MawaqitMac" "$APP_DIR/Contents/MacOS/MawaqitMac"
+# Some toolchains record the deployment target as the SDK version, which makes macOS
+# treat the app as pre-Tahoe and skip Liquid Glass on system controls. Record the real SDK.
+SDK_VERSION=$(xcrun --sdk "$SDK_PATH" --show-sdk-version)
+vtool -set-build-version macos 13.0 "$SDK_VERSION" -replace \
+    -output "$APP_DIR/Contents/MacOS/MawaqitMac" "$APP_DIR/Contents/MacOS/MawaqitMac"
 cp "$SCRIPT_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
 if [ -n "${APP_VERSION:-}" ]; then
     plutil -replace CFBundleShortVersionString -string "$APP_VERSION" "$APP_DIR/Contents/Info.plist"
