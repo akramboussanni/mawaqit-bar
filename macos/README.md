@@ -19,7 +19,7 @@ Search uses AppKit’s native search field, and compact buttons use the system L
 The menu-bar panel is 340 points wide and sizes to its content. On macOS 26 and later,
 its background uses NSGlassEffectView; icon buttons are circular and labeled buttons
 use capsules. Escape, clicking outside, or switching apps dismisses the panel.
-Settings open inside the same glass panel (gear button, Settings…, or Command–Comma); the back button or Escape returns to the schedule.
+Settings open in a popover from the gear button (also Settings… or Command–Comma); click away or press Escape to close it.
 The location arrow beside search requests a one-time location, searches nearby
 Mawaqit mosques, and offers AlAdhan calculated times. Your saved schedule changes
 only when you choose a result.

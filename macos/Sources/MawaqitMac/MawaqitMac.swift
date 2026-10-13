@@ -64,11 +64,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             self?.popover.resizeContent(to: NSSize(width: 340, height: height))
         }))
         UNUserNotificationCenter.current().delegate = self
-        popover.onCancel = { [weak self] in
-            guard let self, self.store.showingSettings else { return false }
-            self.store.showingSettings = false
-            return true
-        }
 
         store.$statusTitle.combineLatest(store.$iconOnlyMenuBar).sink { [weak self] title, iconOnly in
             guard let self, let statusItem = self.statusItem else { return }
@@ -143,8 +138,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     @objc private func showSettings() {
-        store.showingSettings = true
         showPanel()
+        // Present after the panel is on screen so the popover has an anchor.
+        DispatchQueue.main.async { self.store.showingSettings = true }
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

@@ -8,11 +8,7 @@ struct MenuContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if store.showingSettings {
-                SettingsPage(store: store)
-            } else {
-                schedulePage
-            }
+            schedulePage
         }
         .padding(16)
         .frame(width: 340)
@@ -171,6 +167,9 @@ struct MenuContentView: View {
                 .modifier(SystemGlassButtons(isCircular: true))
                 .help("Settings… (⌘,)")
                 .keyboardShortcut(",")
+                .popover(isPresented: $store.showingSettings, arrowEdge: .top) {
+                    SettingsPage(store: store)
+                }
               }
             }
         }
@@ -277,23 +276,12 @@ private struct NativeSearchField: NSViewRepresentable {
     }
 }
 
-/// Settings live inside the same glass panel as the schedule.
+/// Settings shown in a popover anchored to the gear button.
 struct SettingsPage: View {
     @ObservedObject var store: MawaqitStore
 
     var body: some View {
-        GlassControls {
-            HStack(spacing: 10) {
-                Button { store.showingSettings = false } label: {
-                    Image(systemName: "chevron.left")
-                }
-                .modifier(SystemGlassButtons(isCircular: true))
-                .help("Back")
-                .accessibilityLabel("Back")
-                Text("Settings").font(.headline)
-                Spacer()
-            }
-        }
+        VStack(alignment: .leading, spacing: 12) {
         section("General") {
             toggle("Launch at login", isOn: Binding(get: { store.launchAtLogin }, set: store.setLaunchAtLogin))
             Divider()
@@ -320,6 +308,9 @@ struct SettingsPage: View {
         if !store.status.isEmpty {
             Text(store.status).font(.caption).foregroundStyle(.secondary).lineLimit(3)
         }
+        }
+        .padding(16)
+        .frame(width: 300)
     }
 
     private func toggle(_ title: String, isOn: Binding<Bool>) -> some View {

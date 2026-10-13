@@ -87,7 +87,8 @@ final class GlassPanel: NSPanel, NSWindowDelegate {
             self?.dismiss()
         }
         localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self, weak anchorWindow] event in
-            if let self, event.window !== self, event.window !== anchorWindow { self.dismiss() }
+            if let self, event.window !== self, event.window?.parent !== self,
+               event.window !== anchorWindow { self.dismiss() }
             return event
         }
     }
@@ -97,10 +98,14 @@ final class GlassPanel: NSPanel, NSWindowDelegate {
         removeMonitors()
     }
 
-    /// Escape handler; returns true when it consumed the key (e.g. leaving Settings).
-    var onCancel: (() -> Bool)?
-    override func cancelOperation(_ sender: Any?) { if onCancel?() != true { dismiss() } }
-    func windowDidResignKey(_ notification: Notification) { dismiss() }
+    override func cancelOperation(_ sender: Any?) { dismiss() }
+    func windowDidResignKey(_ notification: Notification) {
+        // A popover from this panel (Settings) becomes key without closing the panel.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, NSApp.keyWindow !== self, NSApp.keyWindow?.parent !== self else { return }
+            self.dismiss()
+        }
+    }
 
     private func removeMonitors() {
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
