@@ -54,7 +54,7 @@ struct MenuContentView: View {
     }
 
     private var search: some View {
-        HStack(spacing: 10) {
+        GlassRow { HStack(spacing: 10) {
             NativeSearchField(text: $store.query, onSubmit: store.submitSearch)
                 .disabled(store.isLocating)
                 .accessibilityLabel("Search mosques or locations")
@@ -67,7 +67,7 @@ struct MenuContentView: View {
             .disabled(store.isLocating || store.isLoading || store.locationUnavailable != nil)
             .help(store.locationUnavailable ?? "Use current location")
             .accessibilityLabel("Use current location")
-        }
+        } }
     }
 
     private var results: some View {
@@ -155,7 +155,7 @@ struct MenuContentView: View {
     private var controls: some View {
         VStack(spacing: 12) {
             Divider()
-            HStack {
+            GlassRow { HStack {
                 Button { store.refresh() } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
@@ -172,7 +172,7 @@ struct MenuContentView: View {
                 .popover(isPresented: $store.showingSettings, arrowEdge: .top) {
                     SettingsPage(store: store)
                 }
-            }
+            } }
         }
     }
 
@@ -338,11 +338,14 @@ private struct ContentHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
-/// Icon-only buttons use the system Liquid Glass button (NSBezelStyle.glass) on macOS 26+.
+/// Icon-only buttons get interactive Liquid Glass (bounce and shimmer) on macOS 26+.
 private struct RoundGlassButton: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
-            content.buttonStyle(.glass).buttonBorderShape(.circle)
+            content.buttonStyle(.plain)
+                .frame(width: 30, height: 30)
+                .contentShape(Circle())
+                .glassEffect(.regular.interactive(), in: .circle)
         } else if #available(macOS 14.0, *) {
             content.buttonBorderShape(.circle)
         } else {
@@ -350,3 +353,16 @@ private struct RoundGlassButton: ViewModifier {
         }
     }
 }
+
+/// Glass elements in one row share a container so they render and blend together.
+private struct GlassRow<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer(spacing: 10) { content() }
+        } else {
+            content()
+        }
+    }
+}
+
