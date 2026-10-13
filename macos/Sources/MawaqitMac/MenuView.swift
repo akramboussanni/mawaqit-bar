@@ -63,6 +63,7 @@ struct MenuContentView: View {
                 if store.isLocating { ProgressView().controlSize(.small) }
                 else { Image(systemName: "location") }
             }
+            .modifier(CircularButton())
             .disabled(store.isLocating || store.isLoading || store.locationUnavailable != nil)
             .help(store.locationUnavailable ?? "Use current location")
             .accessibilityLabel("Use current location")
@@ -165,6 +166,7 @@ struct MenuContentView: View {
                     Label("Settings…", systemImage: "gearshape")
                 }
                 .labelStyle(.iconOnly)
+                .modifier(CircularButton())
                 .help("Settings… (⌘,)")
                 .keyboardShortcut(",")
                 .popover(isPresented: $store.showingSettings, arrowEdge: .top) {
@@ -334,4 +336,11 @@ struct SettingsPage: View {
 private struct ContentHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 440
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// Icon-only buttons keep the standard system button in a circular shape.
+private struct CircularButton: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 14.0, *) { content.buttonBorderShape(.circle) } else { content }
+    }
 }
