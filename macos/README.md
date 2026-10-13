@@ -53,15 +53,12 @@ workflow artifacts. The workflow needs these repository secrets:
 | `APPLE_TEAM_ID` | Your 10-character Team ID |
 | `APPLE_APP_PASSWORD` | An app-specific password from account.apple.com |
 
-Export the certificate from Keychain Access (My Certificates → right-click the Developer
-ID Application identity → Export), then set the secrets with:
+Run this once to set them. It exports only the Developer ID identity, asks for your
+Apple Account email and an app-specific password, checks them with Apple, uploads the
+secrets, and starts a signed build:
 
 ```sh
-base64 -i DeveloperID.p12 | gh secret set MACOS_CERTIFICATE_P12
-gh secret set MACOS_CERTIFICATE_PASSWORD
-gh secret set APPLE_ID
-gh secret set APPLE_TEAM_ID
-gh secret set APPLE_APP_PASSWORD
+./macos/setup-ci-secrets.sh
 ```
 
 ## Release from your Mac
