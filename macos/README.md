@@ -15,10 +15,9 @@ or religious authority because local schedules can include tuned adjustments.
 ## Build and run
 
 Requires macOS 13 or newer at runtime, Swift 6 and a macOS 26 or newer SDK to build.
-Search uses AppKit’s native search field, and compact buttons use the system Liquid Glass style on macOS 26 or later.
+Search uses AppKit’s native search field, and buttons, switches and popovers are standard system controls, so they pick up Liquid Glass on macOS 26 or later.
 The menu-bar panel is 340 points wide and sizes to its content. On macOS 26 and later,
-its background uses NSGlassEffectView; icon buttons are circular and labeled buttons
-use capsules. Escape, clicking outside, or switching apps dismisses the panel.
+its background uses NSGlassEffectView. Escape, clicking outside, or switching apps dismisses the panel.
 Settings open in a popover from the gear button (also Settings… or Command–Comma); click away or press Escape to close it.
 The location arrow beside search requests a one-time location, searches nearby
 Mawaqit mosques, and offers AlAdhan calculated times. Your saved schedule changes

@@ -48,8 +48,7 @@ struct MenuContentView: View {
     }
 
     private var search: some View {
-        GlassControls {
-          HStack(spacing: 10) {
+        HStack(spacing: 10) {
             NativeSearchField(text: $store.query, onSubmit: store.submitSearch)
                 .disabled(store.isLocating)
                 .accessibilityLabel("Search mosques or locations")
@@ -58,11 +57,9 @@ struct MenuContentView: View {
                 if store.isLocating { ProgressView().controlSize(.small) }
                 else { Image(systemName: "location") }
             }
-            .modifier(SystemGlassButtons(isCircular: true))
             .disabled(store.isLocating || store.isLoading)
             .help("Use current location")
             .accessibilityLabel("Use current location")
-          }
         }
     }
 
@@ -151,12 +148,10 @@ struct MenuContentView: View {
     private var controls: some View {
         VStack(spacing: 12) {
             Divider()
-            GlassControls {
-              HStack {
+            HStack {
                 Button { store.refresh() } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .modifier(SystemGlassButtons())
                 .keyboardShortcut("r")
                 .disabled(!store.hasLocation || store.isLoading)
                 Spacer()
@@ -164,13 +159,11 @@ struct MenuContentView: View {
                     Label("Settings…", systemImage: "gearshape")
                 }
                 .labelStyle(.iconOnly)
-                .modifier(SystemGlassButtons(isCircular: true))
                 .help("Settings… (⌘,)")
                 .keyboardShortcut(",")
                 .popover(isPresented: $store.showingSettings, arrowEdge: .top) {
                     SettingsPage(store: store)
                 }
-              }
             }
         }
     }
@@ -335,30 +328,4 @@ struct SettingsPage: View {
 private struct ContentHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 440
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-
-/// Let the system own button geometry, focus, pressed state, and glass rendering.
-private struct SystemGlassButtons: ViewModifier {
-    var isCircular = false
-    @ViewBuilder func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content.buttonStyle(.glass)
-                .buttonBorderShape(isCircular ? .circle : .capsule)
-                .controlSize(.regular)
-        } else {
-            content.buttonStyle(.bordered)
-        }
-    }
-}
-
-/// Nearby controls share a glass rendering context and native hover/press effects.
-private struct GlassControls<Content: View>: View {
-    @ViewBuilder var content: () -> Content
-    var body: some View {
-        if #available(macOS 26.0, *) {
-            GlassEffectContainer(spacing: 8) { content() }
-        } else {
-            content()
-        }
-    }
 }
