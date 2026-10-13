@@ -115,6 +115,16 @@ export default class MawaqitExtension extends Extension {
         this._status.label.clutter_text.line_wrap = true;
         this._status.label.clutter_text.ellipsize = 0;
         this._status.add_style_class_name('mawaqit-status');
+        this._locationHint = this._text('');
+        this._locationHint.add_style_class_name('mawaqit-status');
+        this._locationHint.label.clutter_text.line_wrap = true;
+        this._locationHint.label.clutter_text.ellipsize = 0;
+        this._button.menu.box.set_child_below_sibling(this._locationHint.actor, this._results.actor);
+        try {
+            this._locationSettings = new Gio.Settings({schema_id: 'org.gnome.system.location'});
+            this._locationSettingsId = this._locationSettings.connect('changed::enabled', () => this._updateLocationAvailability());
+        } catch (_) { /* Schema missing: location stays available and errors explain failures. */ }
+        this._updateLocationAvailability();
         this._button.menu.connect('open-state-changed', (_menu, open) => {
             if (open) this._render();
             if (open && !this._hasLocation()) this._searchEntry.grab_key_focus();
@@ -287,7 +297,7 @@ export default class MawaqitExtension extends Extension {
     }
 
     _requestCurrentLocation() {
-        if (this._locationCancel) return;
+        if (this._locationCancel || !this._locationAvailable()) return;
         const cancel = new Gio.Cancellable();
         this._locationCancel = cancel;
         this._locationButton.reactive = false;
@@ -335,14 +345,27 @@ export default class MawaqitExtension extends Extension {
         }
     }
 
+    _locationAvailable() {
+        return this._locationSettings?.get_boolean('enabled') !== false;
+    }
+
+    // Gray out the location controls and say why when Location Services is off.
+    _updateLocationAvailability() {
+        const available = this._locationAvailable();
+        this._locationHint.label.text = available ? ''
+            : 'Location Services is off. Turn it on in Settings → Privacy → Location, or enter a city.';
+        this._locationHint.actor.visible = !available;
+        if (this._locationCancel) return;
+        this._locationButton.reactive = available;
+        this._locationButton.opacity = available ? 255 : 100;
+        this._currentLocationAction.setSensitive(available);
+    }
+
     _finishLocation() {
         if (this._locationTimeout) GLib.Source.remove(this._locationTimeout);
         this._locationTimeout = null;
         this._locationCancel = null;
-        if (this._alive) {
-            this._locationButton.reactive = true;
-            this._currentLocationAction.setSensitive(true);
-        }
+        if (this._alive) this._updateLocationAvailability();
     }
 
     _locationError(error) {
@@ -535,6 +558,8 @@ export default class MawaqitExtension extends Extension {
 
     disable() {
         this._alive = false;
+        if (this._locationSettingsId) this._locationSettings.disconnect(this._locationSettingsId);
+        this._locationSettings = null;
         this._generation++;
         this._searchGeneration++;
         if (this._timer) GLib.Source.remove(this._timer);

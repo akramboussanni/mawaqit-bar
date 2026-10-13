@@ -13,6 +13,7 @@ final class MawaqitStore: ObservableObject {
     @Published var status = "Enter a mosque or city and press Return"
     @Published var isLoading = false
     @Published var isLocating = false
+    @Published var locationUnavailable: String?
     @Published var showingSettings = false
     @Published var statusTitle = ""
     @Published var iconOnlyMenuBar = UserDefaults.standard.bool(forKey: "iconOnlyMenuBar")
@@ -37,6 +38,7 @@ final class MawaqitStore: ObservableObject {
     init() {
         load()
         render()
+        locationLookup.onAvailabilityChange = { [weak self] reason in self?.locationUnavailable = reason }
         if state.notificationsEnabled {
             // Notifications default to on, so ask once up front like GNOME's Shell notifications.
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
@@ -45,6 +47,8 @@ final class MawaqitStore: ObservableObject {
 
     func tick() {
         render()
+        // The system-wide switch has no callback; recheck whenever the panel refreshes.
+        locationLookup.refreshAvailability()
         checkNotifications()
         if hasLocation, Date().timeIntervalSince(lastAttempt ?? .distantPast) > 3600 {
             refresh()

@@ -26,6 +26,12 @@ struct MenuContentView: View {
     @ViewBuilder
     private var schedulePage: some View {
             search
+            if let reason = store.locationUnavailable {
+                // Disabled buttons show no tooltip on macOS, so say why the arrow is grayed out.
+                Label(reason, systemImage: "location.slash")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if !store.results.isEmpty || store.calculatedSuggestion != nil {
                 // Search results have their own bounded area; the schedule never scrolls.
                 ScrollView {
@@ -57,8 +63,8 @@ struct MenuContentView: View {
                 if store.isLocating { ProgressView().controlSize(.small) }
                 else { Image(systemName: "location") }
             }
-            .disabled(store.isLocating || store.isLoading)
-            .help("Use current location")
+            .disabled(store.isLocating || store.isLoading || store.locationUnavailable != nil)
+            .help(store.locationUnavailable ?? "Use current location")
             .accessibilityLabel("Use current location")
         }
     }

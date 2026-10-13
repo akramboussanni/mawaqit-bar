@@ -8,10 +8,31 @@ final class LocationLookup: NSObject, @preconcurrency CLLocationManagerDelegate 
     private var completion: ((Result<CLLocationCoordinate2D, Error>) -> Void)?
     private var timeout: Task<Void, Never>?
 
+    /// Called with a reason when location can't be used (system-wide off, or Mawaqit denied), else nil.
+    var onAvailabilityChange: ((String?) -> Void)? {
+        didSet { refreshAvailability() }
+    }
+
     override init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyKilometer
+    }
+
+    func refreshAvailability() {
+        let status = manager.authorizationStatus
+        // locationServicesEnabled() can block, so query it off the main thread.
+        Task.detached {
+            let enabled = CLLocationManager.locationServicesEnabled()
+            await MainActor.run { [weak self] in
+                let reason: String? = if !enabled {
+                    "Location Services is off. Turn it on in System Settings → Privacy & Security, or enter a city."
+                } else if status == .denied || status == .restricted {
+                    "Mawaqit can’t use your location. Allow it in System Settings → Privacy & Security → Location Services, or enter a city."
+                } else { nil }
+                self?.onAvailabilityChange?(reason)
+            }
+        }
     }
 
     func request(completion: @escaping (Result<CLLocationCoordinate2D, Error>) -> Void) {
@@ -30,6 +51,7 @@ final class LocationLookup: NSObject, @preconcurrency CLLocationManagerDelegate 
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        refreshAvailability()
         guard completion != nil else { return }
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse: manager.requestLocation()
