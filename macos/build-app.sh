@@ -3,7 +3,7 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 APP_DIR="$SCRIPT_DIR/dist/Mawaqit.app"
-ZIP_PATH="$SCRIPT_DIR/dist/Mawaqit.zip"
+ZIP_PATH="$SCRIPT_DIR/.build/Mawaqit-notarize.zip"
 SWIFT_COMMAND=$(command -v swift)
 
 # Swiftly's shim can fall back to Apple's bundled compiler when invoked from
@@ -58,6 +58,7 @@ else
     codesign --force --sign - "$APP_DIR"
 fi
 codesign --verify --deep --strict "$APP_DIR"
+mkdir -p "$(dirname "$ZIP_PATH")"
 rm -f "$ZIP_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
-printf '%s\n' "Built $APP_DIR" "Archived $ZIP_PATH"
+printf '%s\n' "Built $APP_DIR"

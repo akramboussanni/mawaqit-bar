@@ -3,7 +3,7 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 APP_DIR="$SCRIPT_DIR/dist/Mawaqit.app"
-ZIP_PATH="$SCRIPT_DIR/dist/Mawaqit.zip"
+ZIP_PATH="$SCRIPT_DIR/.build/Mawaqit-notarize.zip"
 DMG_PATH="$SCRIPT_DIR/dist/Mawaqit.dmg"
 NOTARY_PROFILE_NAME="${NOTARY_PROFILE:-mawaqit-release}"
 
@@ -33,8 +33,8 @@ SIGN_IDENTITY="$SIGN_IDENTITY" "$SCRIPT_DIR/build-app.sh"
 notarize "$ZIP_PATH"
 xcrun stapler staple "$APP_DIR"
 xcrun stapler validate "$APP_DIR"
+# The zip only exists because notarytool needs an archive; the DMG is what ships.
 rm -f "$ZIP_PATH"
-ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 
 # dmgbuild writes the Finder layout (background, icon positions) without needing a GUI session.
@@ -53,4 +53,4 @@ notarize "$DMG_PATH"
 xcrun stapler staple "$DMG_PATH"
 xcrun stapler validate "$DMG_PATH"
 codesign --verify --strict --verbose=2 "$DMG_PATH"
-printf '%s\n' "Notarized ZIP: $ZIP_PATH" "Notarized DMG: $DMG_PATH"
+printf '%s\n' "Notarized DMG: $DMG_PATH"

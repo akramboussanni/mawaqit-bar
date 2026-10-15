@@ -64,4 +64,4 @@ Building, local signing, and the release pipeline are documented in
 
 Pushing a `v*` tag runs [the release workflow](.github/workflows/release.yml). It tests
 both versions, packages the GNOME extension, builds, signs, and notarizes the Mac app,
-then publishes all three files to a GitHub release.
+then publishes the Mac DMG and the GNOME extension to a GitHub release.

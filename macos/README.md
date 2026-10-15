@@ -40,9 +40,9 @@ before enabling automatic launch so macOS keeps a stable login-item path.
 ## Release from GitHub Actions
 
 Pushing a `v*` tag (for example `git tag v1.1 && git push origin v1.1`) builds, signs,
-notarizes, and staples the app, then attaches `Mawaqit.dmg` and `Mawaqit.zip` to a
-GitHub release. Pushes to `main` run the same notarized build and keep the files as
-workflow artifacts. The workflow needs these repository secrets:
+notarizes, and staples the app, then attaches `Mawaqit.dmg` to a
+GitHub release. Pushes to `main` run the same notarized build and keep the DMG as a
+workflow artifact. The workflow needs these repository secrets:
 
 | Secret | Value |
 |---|---|
@@ -79,9 +79,8 @@ cd macos
 ./release.sh
 ```
 
-The primary shareable file is `dist/Mawaqit.dmg`, with `Mawaqit.app` and an
-Applications shortcut for drag-to-install. A notarized `dist/Mawaqit.zip` is also
-produced. The script picks the first installed `Developer ID Application` identity.
+The shareable file is `dist/Mawaqit.dmg`, with `Mawaqit.app` and an
+Applications shortcut for drag-to-install. The script picks the first installed `Developer ID Application` identity.
 Override it or the Keychain profile if needed:
 
 ```sh

@@ -82,9 +82,7 @@ jobs:
       - uses: actions/upload-artifact@v5
         with:
           name: macos
-          path: |
-            macos/dist/Mawaqit.dmg
-            macos/dist/Mawaqit.zip
+          path: macos/dist/Mawaqit.dmg
           if-no-files-found: ignore
 
   release:
@@ -100,4 +98,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes \
-            Mawaqit.dmg Mawaqit.zip mawaqit@akramb.com.shell-extension.zip
+            Mawaqit.dmg mawaqit@akramb.com.shell-extension.zip
