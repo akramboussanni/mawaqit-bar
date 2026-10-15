@@ -159,6 +159,7 @@ struct MenuContentView: View {
                 Button { store.refresh() } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
+                .modifier(CapsuleGlassButton())
                 .keyboardShortcut("r")
                 .disabled(!store.hasLocation || store.isLoading)
                 Spacer()
@@ -348,6 +349,21 @@ private struct RoundGlassButton: ViewModifier {
                 .glassEffect(.regular.interactive(), in: .circle)
         } else if #available(macOS 14.0, *) {
             content.buttonBorderShape(.circle)
+        } else {
+            content
+        }
+    }
+}
+
+/// Labeled buttons get the same interactive Liquid Glass as a capsule on macOS 26+.
+private struct CapsuleGlassButton: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .frame(height: 30)
+                .contentShape(Capsule())
+                .glassEffect(.regular.interactive(), in: .capsule)
         } else {
             content
         }
