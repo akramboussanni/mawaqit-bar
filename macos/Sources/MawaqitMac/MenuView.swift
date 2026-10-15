@@ -60,10 +60,13 @@ struct MenuContentView: View {
                 .accessibilityLabel("Search mosques or locations")
             if store.isLoading { ProgressView().controlSize(.small) }
             Button { store.useCurrentLocation() } label: {
-                if store.isLocating { ProgressView().controlSize(.small) }
-                else { Image(systemName: "location") }
+                Group {
+                    if store.isLocating { ProgressView().controlSize(.small) }
+                    else { Image(systemName: "location") }
+                }
+                .glassLabel(in: .circle)
             }
-            .modifier(RoundGlassButton())
+            .modifier(GlassButton(round: true))
             .disabled(store.isLocating || store.isLoading || store.locationUnavailable != nil)
             .help(store.locationUnavailable ?? "Use current location")
             .accessibilityLabel("Use current location")
@@ -158,16 +161,18 @@ struct MenuContentView: View {
             GlassRow { HStack {
                 Button { store.refresh() } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
+                        .glassLabel(in: .capsule)
                 }
-                .modifier(CapsuleGlassButton())
+                .modifier(GlassButton(round: false))
                 .keyboardShortcut("r")
                 .disabled(!store.hasLocation || store.isLoading)
                 Spacer()
                 Button(action: openSettings) {
                     Label("Settings…", systemImage: "gearshape")
+                        .labelStyle(.iconOnly)
+                        .glassLabel(in: .circle)
                 }
-                .labelStyle(.iconOnly)
-                .modifier(RoundGlassButton())
+                .modifier(GlassButton(round: true))
                 .help("Settings… (⌘,)")
                 .keyboardShortcut(",")
                 .popover(isPresented: $store.showingSettings, arrowEdge: .top) {
@@ -348,31 +353,37 @@ private struct ContentHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
-/// Icon-only buttons get interactive Liquid Glass (bounce and shimmer) on macOS 26+.
-private struct RoundGlassButton: ViewModifier {
-    @ViewBuilder func body(content: Content) -> some View {
+enum GlassLabelShape { case circle, capsule }
+
+extension View {
+    /// Interactive Liquid Glass as part of a button's label, so the whole glass shape is
+    /// the click target (Apple: apply glassEffect to the custom view itself).
+    @ViewBuilder func glassLabel(in shape: GlassLabelShape) -> some View {
         if #available(macOS 26.0, *) {
-            content.buttonStyle(.plain)
-                .frame(width: 30, height: 30)
-                .contentShape(Circle())
-                .glassEffect(.regular.interactive(), in: .circle)
-        } else if #available(macOS 14.0, *) {
-            content.buttonBorderShape(.circle)
+            switch shape {
+            case .circle:
+                frame(width: 30, height: 30)
+                    .contentShape(Circle())
+                    .glassEffect(.regular.interactive(), in: .circle)
+            case .capsule:
+                padding(.horizontal, 14).frame(height: 30)
+                    .contentShape(Capsule())
+                    .glassEffect(.regular.interactive(), in: .capsule)
+            }
         } else {
-            content
+            self
         }
     }
 }
 
-/// Labeled buttons get the same interactive Liquid Glass as a capsule on macOS 26+.
-private struct CapsuleGlassButton: ViewModifier {
+/// The glass label replaces the bezel on macOS 26+; older systems keep the standard button.
+private struct GlassButton: ViewModifier {
+    var round: Bool
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
             content.buttonStyle(.plain)
-                .padding(.horizontal, 14)
-                .frame(height: 30)
-                .contentShape(Capsule())
-                .glassEffect(.regular.interactive(), in: .capsule)
+        } else if round, #available(macOS 14.0, *) {
+            content.buttonBorderShape(.circle)
         } else {
             content
         }
