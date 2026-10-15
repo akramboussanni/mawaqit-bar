@@ -291,9 +291,18 @@ struct SettingsPage: View {
         }
         section("Prayer reminders") {
             toggle("Notifications", isOn: Binding(get: { store.state.notificationsEnabled }, set: store.setNotifications))
-            Text("Alerts at each prayer and the last third of the night. Delivery also depends on your macOS notification settings.")
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if store.state.notificationsEnabled && store.notificationsBlocked {
+                Label("Notifications are turned off for Mawaqit in System Settings.", systemImage: "bell.slash")
+                    .font(.caption).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Open Notification Settings") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=com.akramb.mawaqit")!)
+                }
+            } else {
+                Text("Alerts at each prayer and the last third of the night.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         if store.hasLocation {
             section("Prayer time source") {

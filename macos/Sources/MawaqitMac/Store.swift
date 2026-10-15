@@ -14,6 +14,7 @@ final class MawaqitStore: ObservableObject {
     @Published var isLoading = false
     @Published var isLocating = false
     @Published var locationUnavailable: String?
+    @Published var notificationsBlocked = false
     @Published var showingSettings = false
     @Published var statusTitle = ""
     @Published var iconOnlyMenuBar = UserDefaults.standard.bool(forKey: "iconOnlyMenuBar")
@@ -24,8 +25,7 @@ final class MawaqitStore: ObservableObject {
     private var searchTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
     private var lastAttempt: Date?
-    private var lastNotificationCheck = Date()
-    private var notificationSeen = Set<String>()
+    private var scheduledNotificationsKey = ""
 
     private var stateURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -49,7 +49,7 @@ final class MawaqitStore: ObservableObject {
         render()
         // The system-wide switch has no callback; recheck whenever the panel refreshes.
         locationLookup.refreshAvailability()
-        checkNotifications()
+        scheduleNotifications()
         if hasLocation, Date().timeIntervalSince(lastAttempt ?? .distantPast) > 3600 {
             refresh()
         }
@@ -132,8 +132,8 @@ final class MawaqitStore: ObservableObject {
 
     func setNotifications(_ enabled: Bool) {
         state.notificationsEnabled = enabled
-        lastNotificationCheck = Date()
         save()
+        scheduleNotifications()
         if enabled {
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         }
@@ -175,10 +175,6 @@ final class MawaqitStore: ObservableObject {
                 let calendar = try await service.calendar(slug: candidateSlug)
                 _ = try ScheduleBuilder.build(calendar)
                 guard !Task.isCancelled else { return }
-                if candidateSlug != state.slug {
-                    lastNotificationCheck = Date()
-                    notificationSeen.removeAll()
-                }
                 state = SavedState(notificationsEnabled: state.notificationsEnabled, slug: candidateSlug,
                     name: candidateName, calendar: calendar, fetched: Date(), year: utcYear(),
                     source: .mawaqit, calculationQuery: nil, calculationMethod: nil)
@@ -188,6 +184,7 @@ final class MawaqitStore: ObservableObject {
                 status = ""
                 save()
                 render()
+                scheduleNotifications()
             } catch {
                 if !Task.isCancelled { status = error.localizedDescription }
             }
@@ -205,11 +202,6 @@ final class MawaqitStore: ObservableObject {
                 let result = try await service.calculatedCalendar(query: calculationQuery, year: utcYear())
                 _ = try ScheduleBuilder.build(result.calendar)
                 guard !Task.isCancelled else { return }
-                let previousKey = state.calculationQuery ?? state.slug
-                if calculationQuery != previousKey {
-                    lastNotificationCheck = Date()
-                    notificationSeen.removeAll()
-                }
                 state = SavedState(notificationsEnabled: state.notificationsEnabled, slug: nil,
                     name: name ?? calculationQuery, calendar: result.calendar, fetched: Date(), year: utcYear(),
                     source: .aladhan, calculationQuery: calculationQuery, calculationMethod: result.method)
@@ -219,6 +211,7 @@ final class MawaqitStore: ObservableObject {
                 status = ""
                 save()
                 render()
+                scheduleNotifications()
             } catch {
                 if !Task.isCancelled { status = error.localizedDescription }
             }
@@ -249,28 +242,33 @@ final class MawaqitStore: ObservableObject {
         }
     }
 
-    private func checkNotifications() {
-        defer { lastNotificationCheck = Date() }
-        guard state.notificationsEnabled, let view = schedule else { return }
-        var events: [(String, Date, String, String)] = view.today.compactMap { prayer in
-            guard !prayer.isSunrise, let end = prayer.end else { return nil }
-            let id = "prayer:\(prayer.name):\(prayer.start.timeIntervalSince1970)"
-            let suffix = prayer.name == "Isha" ? " · Islamic midnight" : ""
-            return (id, prayer.start, "\(prayer.name) time", "Ends at \(time(end, view))\(suffix)")
+    /// Hands macOS the next two days of alerts so they arrive on time even while the
+    /// app is napping or the Mac was asleep; a timer-based check would miss them.
+    private func scheduleNotifications() {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            let blocked = settings.authorizationStatus == .denied
+            Task { @MainActor in self.notificationsBlocked = blocked }
         }
-        events.append(("last-third:\(view.night.lastThird.timeIntervalSince1970)", view.night.lastThird,
-            "Last third of the night", "Until Fajr at \(time(view.night.end, view))"))
-        for event in events where event.1 > lastNotificationCheck && event.1 <= view.now
-            && view.now.timeIntervalSince(event.1) <= 90 && !notificationSeen.contains(event.0) {
+        // Reschedule when the source, setting, or hour changes, so the 48-hour window keeps rolling.
+        let hour = Int(Date().timeIntervalSince1970 / 3600)
+        let key = "\(state.notificationsEnabled)|\(state.fetched?.timeIntervalSince1970 ?? 0)|\(hour)"
+        guard key != scheduledNotificationsKey else { return }
+        scheduledNotificationsKey = key
+        center.removeAllPendingNotificationRequests()
+        guard state.notificationsEnabled, let data = state.calendar, state.year == utcYear(),
+              let events = try? Presentation.upcomingNotifications(data, now: Date(),
+                  place: state.name ?? state.slug ?? state.calculationQuery ?? "Mawaqit",
+                  calculated: isCalculated) else { return }
+        for event in events {
             let content = UNMutableNotificationContent()
-            content.title = event.2
-            let sourceNote = isCalculated ? " · Calculated by AlAdhan" : ""
-            content.body = "\(state.name ?? state.slug ?? state.calculationQuery ?? "Mawaqit") · \(event.3) (\(view.timezone))\(sourceNote)"
+            content.title = event.title
+            content.body = event.body
             content.sound = .default
-            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: event.0, content: content, trigger: nil))
-            notificationSeen.insert(event.0)
+            let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: event.date)
+            center.add(UNNotificationRequest(identifier: event.id, content: content,
+                trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)))
         }
-        if notificationSeen.count > 30 { notificationSeen = Set(notificationSeen.suffix(30)) }
     }
 
     private func time(_ date: Date, _ view: ScheduleView) -> String {

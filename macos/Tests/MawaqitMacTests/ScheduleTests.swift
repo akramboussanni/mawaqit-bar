@@ -109,4 +109,20 @@ struct ScheduleTests {
         #expect(rows.last?.id == view.current?.id)
         #expect(Presentation.nextSummary(view).isEmpty)
     }
+
+    @Test func notificationsAreScheduledAheadForTwoDays() throws {
+        let days = Dictionary(uniqueKeysWithValues: (1...31).map {
+            (String($0), ["05:00", "06:30", "13:00", "16:30", "19:00", "20:30"])
+        })
+        let data = PrayerCalendar(timezone: "America/Toronto", calendar: Array(repeating: days, count: 12))
+        let now = try #require(ISO8601DateFormatter().date(from: "2026-09-19T18:00:00Z")) // 14:00 local
+        let events = try Presentation.upcomingNotifications(data, now: now, place: "Test", calculated: false)
+        // Covers the rest of today, all of tomorrow, and the following morning, without duplicates.
+        #expect(events.allSatisfy { $0.date > now && $0.date <= now.addingTimeInterval(48 * 3600) })
+        #expect(events.first?.title == "Asr time")
+        #expect(events.filter { $0.title == "Last third of the night" }.count == 2)
+        #expect(Set(events.map(\.id)).count == events.count)
+        #expect(events.first?.body == "Test · Ends at 19:00 (America/Toronto)")
+        #expect(zip(events, events.dropFirst()).allSatisfy { $0.date <= $1.date })
+    }
 }
