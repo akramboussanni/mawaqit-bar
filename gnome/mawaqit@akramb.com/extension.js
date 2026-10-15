@@ -95,9 +95,19 @@ export default class MawaqitExtension extends Extension {
             this._state.notificationsEnabled = enabled;
             this._lastNotificationCheck = Math.floor(Date.now() / 1000);
             this._save();
+            this._render();
             if (enabled) Main.notify('Prayer notifications enabled', 'Alerts at prayer start and the last third of the night.');
         });
         this._button.menu.addMenuItem(this._notificationSwitch);
+        this._notificationHint = this._text('');
+        this._notificationHint.add_style_class_name('mawaqit-status');
+        this._notificationHint.label.clutter_text.line_wrap = true;
+        this._notificationHint.label.clutter_text.ellipsize = 0;
+        this._button.menu.box.set_child_above_sibling(this._notificationHint.actor, this._notificationSwitch.actor);
+        try {
+            this._notificationSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
+            this._notificationSettingsId = this._notificationSettings.connect('changed::show-banners', () => this._render());
+        } catch (_) { /* Schema missing: assume banners are shown. */ }
         this._iconOnlySwitch = new PopupMenu.PopupSwitchMenuItem('Icon only in top bar', this._state.iconOnlyMenuBar === true);
         this._iconOnlySwitch.connect('toggled', (_item, enabled) => {
             this._state.iconOnlyMenuBar = enabled;
@@ -473,6 +483,10 @@ export default class MawaqitExtension extends Extension {
         const active = this._hasLocation();
         for (const item of [this._prayerSeparator, this._title, this._subtitle, this._source, this._upcomingSummary, this._todayHeading, this._rows, this._nightHeading, this._nightRows, this._notificationSwitch, this._refreshAction])
             item.actor.visible = active;
+        const dnd = this._notificationSettings?.get_boolean('show-banners') === false;
+        this._notificationHint.label.text = dnd
+            ? 'Do Not Disturb is on, so prayer alerts won’t pop up. They still appear in the notification list.' : '';
+        this._notificationHint.actor.visible = active && dnd && this._state.notificationsEnabled !== false;
         const calculated = this._isCalculated();
         this._source.actor.visible = active && calculated;
         this._status.actor.visible = Boolean(this._status.label.text);
@@ -559,6 +573,8 @@ export default class MawaqitExtension extends Extension {
     disable() {
         this._alive = false;
         if (this._locationSettingsId) this._locationSettings.disconnect(this._locationSettingsId);
+        if (this._notificationSettingsId) this._notificationSettings.disconnect(this._notificationSettingsId);
+        this._notificationSettings = null;
         this._locationSettings = null;
         this._generation++;
         this._searchGeneration++;
