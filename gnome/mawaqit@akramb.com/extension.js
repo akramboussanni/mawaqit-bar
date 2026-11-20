@@ -11,6 +11,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {parseCalendar, parseCalculatedCalendar, schedule, mosqueSlug} from './calendar.js';
 import {dueNotifications} from './notifications.js';
 import {remaining, prayerDetail, panelTitle, displayPrayers, nextSummary} from './presentation.js';
+import {CONNECT_PROMPT, kimonoLink} from './kimono.js';
 
 export default class MawaqitExtension extends Extension {
     enable() {
@@ -125,7 +126,10 @@ export default class MawaqitExtension extends Extension {
         this._refreshAction = this._action('Refresh prayer times', () => this._refreshCurrent());
         this._refreshAction.insert_child_at_index(this._icon('view-refresh-symbolic'), 1);
         this._refreshAction.add_style_class_name('mawaqit-refresh');
-        this._status = this._text('Search for a Mawaqit mosque, or use calculated times from the menu below.');
+        this._disconnectAction = this._action('Disconnect from Kimono', () => this._disconnect());
+        this._disconnectAction.insert_child_at_index(this._icon('system-log-out-symbolic'), 1);
+        this._disconnectAction.add_style_class_name('mawaqit-refresh');
+        this._status = this._text(this._connected() ? 'Search for a Mawaqit mosque, or use calculated times from the menu below.' : CONNECT_PROMPT);
         this._status.label.connect('notify::text', () => {
             this._status.actor.visible = Boolean(this._status.label.text);
         });
@@ -144,7 +148,7 @@ export default class MawaqitExtension extends Extension {
         this._updateLocationAvailability();
         this._button.menu.connect('open-state-changed', (_menu, open) => {
             if (open) this._render();
-            if (open && !this._hasLocation()) this._searchEntry.grab_key_focus();
+            if (open && (!this._connected() || !this._hasLocation())) this._searchEntry.grab_key_focus();
         });
         Main.panel.addToStatusArea(this.uuid, this._button);
         this._render();
@@ -242,6 +246,15 @@ export default class MawaqitExtension extends Extension {
         this._results.removeAll();
         try {
             const query = this._searchEntry.get_text().trim();
+            const link = kimonoLink(query);
+            if (link) {
+                this._connect(link);
+                return;
+            }
+            if (!this._connected()) {
+                this._status.label.text = CONNECT_PROMPT;
+                return;
+            }
             if (/^https?:\/\//i.test(query)) {
                 const slug = mosqueSlug(query);
                 this._choose(slug, slug);
@@ -390,6 +403,40 @@ export default class MawaqitExtension extends Extension {
         this._error(new Error('Could not access your location. Enable Location Services for GNOME Shell in Settings → Privacy, or enter “City, Country” below.'));
     }
 
+    _connected() {
+        return Boolean(this._state.link);
+    }
+
+    // A Kimono Prayer link replaces whatever was saved, keeping the switches, and loads at once.
+    _connect(link) {
+        this._generation++;
+        this._searchGeneration++;
+        this._state = {notificationsEnabled: this._state.notificationsEnabled !== false,
+            iconOnlyMenuBar: this._state.iconOnlyMenuBar === true, link};
+        this._data = null;
+        this._notificationSeen.clear();
+        this._lastNotificationCheck = Math.floor(Date.now() / 1000);
+        this._results.removeAll();
+        this._searchEntry.set_text('');
+        this._status.label.text = '';
+        this._save();
+        this._render();
+        this._refreshCurrent();
+    }
+
+    _disconnect() {
+        this._generation++;
+        this._searchGeneration++;
+        this._state = {notificationsEnabled: this._state.notificationsEnabled !== false,
+            iconOnlyMenuBar: this._state.iconOnlyMenuBar === true};
+        this._data = null;
+        this._results.removeAll();
+        this._searchEntry.set_text('');
+        this._status.label.text = CONNECT_PROMPT;
+        this._save();
+        this._render();
+    }
+
     _hasLocation() {
         return Boolean(this._state.slug || this._state.calculationQuery);
     }
@@ -487,6 +534,12 @@ export default class MawaqitExtension extends Extension {
     }
 
     _render() {
+        const connected = this._connected();
+        this._searchEntry.hint_text = connected ? 'Mosque, city, coordinates or URL' : 'Paste your Kimono Prayer link';
+        this._locationButton.visible = connected;
+        this._calculatedMenu.actor.visible = connected;
+        this._disconnectAction.actor.visible = connected;
+        if (!connected) this._calculatedSuggestion.actor.visible = false;
         const active = this._hasLocation();
         for (const item of [this._prayerSeparator, this._title, this._subtitle, this._source, this._upcomingSummary, this._todayHeading, this._rows, this._nightHeading, this._nightRows, this._notificationSwitch, this._refreshAction])
             item.actor.visible = active;
