@@ -144,6 +144,12 @@ final class MawaqitStore: ObservableObject {
         UserDefaults.standard.set(enabled, forKey: "iconOnlyMenuBar")
     }
 
+    func setTitleMode(_ mode: TitleMode) {
+        state.titleMode = mode
+        save()
+        render()
+    }
+
     func setLaunchAtLogin(_ enabled: Bool) {
         do {
             if enabled {
@@ -177,7 +183,7 @@ final class MawaqitStore: ObservableObject {
                 guard !Task.isCancelled else { return }
                 state = SavedState(notificationsEnabled: state.notificationsEnabled, slug: candidateSlug,
                     name: candidateName, calendar: calendar, fetched: Date(), year: utcYear(),
-                    source: .mawaqit, calculationQuery: nil, calculationMethod: nil)
+                    source: .mawaqit, calculationQuery: nil, calculationMethod: nil, titleMode: state.titleMode)
                 query = ""
                 results = []
                 calculatedSuggestion = nil
@@ -204,7 +210,8 @@ final class MawaqitStore: ObservableObject {
                 guard !Task.isCancelled else { return }
                 state = SavedState(notificationsEnabled: state.notificationsEnabled, slug: nil,
                     name: name ?? calculationQuery, calendar: result.calendar, fetched: Date(), year: utcYear(),
-                    source: .aladhan, calculationQuery: calculationQuery, calculationMethod: result.method)
+                    source: .aladhan, calculationQuery: calculationQuery, calculationMethod: result.method,
+                    titleMode: state.titleMode)
                 query = ""
                 results = []
                 calculatedSuggestion = nil
@@ -234,7 +241,7 @@ final class MawaqitStore: ObservableObject {
         do {
             let view = try ScheduleBuilder.build(data)
             schedule = view
-            statusTitle = Presentation.panelTitle(view)
+            statusTitle = Presentation.panelTitle(view, mode: state.titleMode ?? .nextPrayer)
         } catch {
             schedule = nil
             statusTitle = ""

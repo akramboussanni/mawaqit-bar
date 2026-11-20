@@ -10,6 +10,12 @@ enum PrayerSource: String, Codable {
     case aladhan
 }
 
+/// What the menu bar title counts down to.
+enum TitleMode: String, Codable, CaseIterable {
+    case nextPrayer
+    case timeLeft
+}
+
 struct CalculatedPrayerCalendar {
     let calendar: PrayerCalendar
     let method: String
@@ -25,6 +31,7 @@ struct SavedState: Codable {
     var source: PrayerSource?
     var calculationQuery: String?
     var calculationMethod: String?
+    var titleMode: TitleMode?
 }
 
 struct MosqueResult: Identifiable, Equatable {

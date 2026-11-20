@@ -293,6 +293,14 @@ struct SettingsPage: View {
             toggle("Launch at login", isOn: Binding(get: { store.launchAtLogin }, set: store.setLaunchAtLogin))
             Divider()
             toggle("Icon only in menu bar", isOn: Binding(get: { store.iconOnlyMenuBar }, set: store.setIconOnlyMenuBar))
+            if !store.iconOnlyMenuBar {
+                Picker("Menu bar shows", selection: Binding(get: { store.state.titleMode ?? .nextPrayer },
+                                                            set: store.setTitleMode)) {
+                    Text("Next prayer").tag(TitleMode.nextPrayer)
+                    Text("Time left").tag(TitleMode.timeLeft)
+                }
+                .pickerStyle(.segmented).labelsHidden()
+            }
         }
         section("Prayer reminders") {
             toggle("Notifications", isOn: Binding(get: { store.state.notificationsEnabled }, set: store.setNotifications))

@@ -23,8 +23,11 @@ export function nextSummary(view) {
     return `Next: ${view.next.name} at ${view.next.time} tomorrow`;
 }
 
-export function panelTitle(view) {
-    const {milestones, night, now} = view;
+// In 'timeLeft' mode, name the open prayer and how long it has left; otherwise the next event.
+export function panelTitle(view, mode = 'nextPrayer') {
+    const {current, milestones, night, now} = view;
+    if (mode === 'timeLeft' && current && now < current.end)
+        return `${current.name}, ${remaining(current.end, now)} left`;
     if (milestones.active && now < milestones.midnight)
         return `Midnight in ${remaining(milestones.midnight, now)}`;
     if (milestones.active && now < milestones.lastThird)

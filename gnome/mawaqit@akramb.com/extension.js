@@ -115,6 +115,13 @@ export default class MawaqitExtension extends Extension {
             this._render();
         });
         this._button.menu.addMenuItem(this._iconOnlySwitch);
+        this._timeLeftSwitch = new PopupMenu.PopupSwitchMenuItem('Show time left in current prayer', this._state.titleMode === 'timeLeft');
+        this._timeLeftSwitch.connect('toggled', (_item, enabled) => {
+            this._state.titleMode = enabled ? 'timeLeft' : 'nextPrayer';
+            this._save();
+            this._render();
+        });
+        this._button.menu.addMenuItem(this._timeLeftSwitch);
         this._refreshAction = this._action('Refresh prayer times', () => this._refreshCurrent());
         this._refreshAction.insert_child_at_index(this._icon('view-refresh-symbolic'), 1);
         this._refreshAction.add_style_class_name('mawaqit-refresh');
@@ -413,7 +420,7 @@ export default class MawaqitExtension extends Extension {
             }
             this._data = data;
             this._state = {notificationsEnabled: this._state.notificationsEnabled !== false,
-                iconOnlyMenuBar: this._state.iconOnlyMenuBar === true,
+                iconOnlyMenuBar: this._state.iconOnlyMenuBar === true, titleMode: this._state.titleMode,
                 source: 'mawaqit', slug: candidate.slug, name: candidate.name,
                 calendar: data, fetched: Date.now(), year: new Date().getUTCFullYear()};
             this._status.label.text = '';
@@ -454,7 +461,7 @@ export default class MawaqitExtension extends Extension {
             }
             this._data = result.calendar;
             this._state = {notificationsEnabled: this._state.notificationsEnabled !== false,
-                iconOnlyMenuBar: this._state.iconOnlyMenuBar === true,
+                iconOnlyMenuBar: this._state.iconOnlyMenuBar === true, titleMode: this._state.titleMode,
                 source: 'aladhan', calculationQuery: query, calculationMethod: result.method,
                 name: name ?? query, calendar: result.calendar, fetched: Date.now(), year};
             this._status.label.text = '';
@@ -505,7 +512,7 @@ export default class MawaqitExtension extends Extension {
                 ? `Calculated by AlAdhan · ${this._state.calculationMethod ?? 'Automatic local method'}\nMay differ from your local mosque or religious authority.` : '';
             const {current, night, now} = view;
             const nextDescription = nextSummary(view);
-            const panelStatus = panelTitle(view);
+            const panelStatus = panelTitle(view, this._state.titleMode);
             this._upcomingSummary.label.text = nextDescription;
             this._upcomingSummary.actor.visible = Boolean(nextDescription);
             this._panelLabel.text = panelStatus;

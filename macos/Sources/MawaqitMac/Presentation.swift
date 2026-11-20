@@ -16,8 +16,12 @@ enum Presentation {
         return end <= view.now ? "Ended \(time)" : "Ends \(time)"
     }
 
-    static func panelTitle(_ view: ScheduleView) -> String {
+    /// In time-left mode, names the open prayer and how long it has left; otherwise the next event.
+    static func panelTitle(_ view: ScheduleView, mode: TitleMode = .nextPrayer) -> String {
         let milestones = view.milestones, now = view.now
+        if mode == .timeLeft, let current = view.current, let end = current.end, now < end {
+            return "\(current.name), \(remaining(until: end, now: now)) left"
+        }
         if milestones.active && now < milestones.midnight {
             return "Midnight in \(remaining(until: milestones.midnight, now: now))"
         }
