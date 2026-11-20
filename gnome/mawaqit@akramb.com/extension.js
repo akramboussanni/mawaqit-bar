@@ -159,7 +159,7 @@ export default class MawaqitExtension extends Extension {
             const view = schedule(this._data);
             for (const event of dueNotifications(view, since, this._notificationSeen)) {
                 const source = this._isCalculated() ? ' · Calculated by AlAdhan' : '';
-                Main.notify(event.title, `${this._state.name ?? this._state.slug ?? this._state.calculationQuery} · ${event.body} (${view.timezone})${source}`);
+                Main.notify(event.title, `${event.body} (${view.timezone}) · ${this._state.name ?? this._state.slug ?? this._state.calculationQuery}${source}`);
                 this._notificationSeen.add(event.id);
             }
             if (this._notificationSeen.size > 30)

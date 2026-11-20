@@ -66,7 +66,7 @@ enum Presentation {
             func add(_ id: String, _ date: Date, _ title: String, _ detail: String) {
                 guard date > now, date <= now.addingTimeInterval(horizon) else { return }
                 events[id] = NotificationEvent(id: id, date: date, title: title,
-                    body: "\(place) · \(detail) (\(view.timezone))\(source)")
+                    body: "\(detail) (\(view.timezone)) · \(place)\(source)")
             }
             for prayer in view.today where !prayer.isSunrise {
                 guard let end = prayer.end else { continue }

@@ -122,7 +122,7 @@ struct ScheduleTests {
         #expect(events.first?.title == "Asr time")
         #expect(events.filter { $0.title == "Last third of the night" }.count == 2)
         #expect(Set(events.map(\.id)).count == events.count)
-        #expect(events.first?.body == "Test · Ends at 19:00 (America/Toronto)")
+        #expect(events.first?.body == "Ends at 19:00 (America/Toronto) · Test")
         #expect(zip(events, events.dropFirst()).allSatisfy { $0.date <= $1.date })
     }
 }
