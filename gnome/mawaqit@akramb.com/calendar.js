@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import {iqamaDelay} from './iqama.js';
 
 export const NAMES = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
@@ -58,23 +59,30 @@ export function parseCalculatedCalendar(payload) {
 export function schedule(data, now = GLib.DateTime.new_now_utc()) {
     const zone = GLib.TimeZone.new_identifier(data.timezone);
     if (!zone) throw new Error('The mosque timezone is invalid.');
+    const formatTime = unix => GLib.DateTime.new_from_unix_utc(Math.floor(unix)).to_timezone(zone).format('%H:%M');
     const local = now.to_timezone(zone);
     const days = [local.add_days(-1), local, local.add_days(1)];
     const schedules = days.map(date => {
         const times = data.calendar[date.get_month() - 1]?.[String(date.get_day_of_month())];
         if (!Array.isArray(times) || times.length < 6)
             throw new Error('No prayer times available for this date.');
+        // Fajr, Dhuhr, Asr, Maghrib, Isha: the iqama list skips sunrise.
+        const listed = data.iqamaEnabled === false ? null
+            : data.iqamaCalendar?.[date.get_month() - 1]?.[String(date.get_day_of_month())];
+        const iqamas = Array.isArray(listed) && listed.length >= 5 ? listed : null;
         return NAMES.map((name, i) => {
             if (!/^\d{1,2}:\d{2}$/.test(times[i])) throw new Error('Invalid prayer time.');
             const [hour, minute] = times[i].split(':').map(Number);
             if (hour > 23 || minute > 59) throw new Error('Invalid prayer time.');
             const instant = GLib.DateTime.new(zone, date.get_year(), date.get_month(),
                 date.get_day_of_month(), hour, minute, 0);
-            return {name, time: times[i], unix: instant.to_unix(), sunrise: i === 1};
+            const delay = iqamas && i !== 1 ? iqamaDelay(iqamas[i === 0 ? 0 : i - 1], times[i]) : null;
+            const iqama = delay === null ? null : instant.to_unix() + delay * 60;
+            return {name, time: times[i], unix: instant.to_unix(), sunrise: i === 1,
+                iqama, iqamaTime: iqama === null ? null : formatTime(iqama)};
         });
     });
     const timestamp = now.to_unix();
-    const formatTime = unix => GLib.DateTime.new_from_unix_utc(Math.floor(unix)).to_timezone(zone).format('%H:%M');
     const nights = schedules.slice(0, 2).map((prayers, index) => {
         const start = prayers[4].unix;
         const end = schedules[index + 1][0].unix;
@@ -87,7 +95,10 @@ export function schedule(data, now = GLib.DateTime.new_now_utc()) {
     const windows = schedules.slice(0, 2).map((prayers, index) => prayers.map((prayer, i) => {
         if (prayer.sunrise) return prayer;
         const end = i === 5 ? nights[index].midnight : prayers[i + 1].unix;
-        return {...prayer, end, endTime: formatTime(end), dayOffset: index - 1};
+        // An iqama outside its own prayer's window is bad data, not a late congregation.
+        const iqama = prayer.iqama !== null && prayer.iqama < end ? prayer.iqama : null;
+        return {...prayer, end, endTime: formatTime(end), dayOffset: index - 1,
+            iqama, iqamaTime: iqama === null ? null : prayer.iqamaTime};
     }));
     const today = windows[1];
     const next = [...today, ...schedules[2]].find(p => !p.sunrise && p.unix > timestamp);

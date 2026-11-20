@@ -16,6 +16,15 @@ enum Presentation {
         return end <= view.now ? "Ended \(time)" : "Ends \(time)"
     }
 
+    /// The open prayer's second line: the wait for its iqama while that is ahead, then its end.
+    static func currentDetail(_ prayer: Prayer, view: ScheduleView, showIqama: Bool = true) -> String {
+        if showIqama, let iqama = prayer.iqama, view.now < iqama {
+            return "Iqama in \(remaining(until: iqama, now: view.now))"
+        }
+        guard let end = prayer.end else { return "" }
+        return "Ends at \(ScheduleBuilder.time(end, timezone: view.timezone))\(prayer.name == "Isha" ? " · Islamic midnight" : "")"
+    }
+
     /// In time-left mode, names the open prayer and how long it has left; otherwise the next event.
     static func panelTitle(_ view: ScheduleView, mode: TitleMode = .nextPrayer) -> String {
         let milestones = view.milestones, now = view.now
@@ -62,7 +71,7 @@ enum Presentation {
 
     /// Prayer starts and last-third alerts after `now`, up to `horizon` ahead, for macOS to deliver on time.
     static func upcomingNotifications(_ data: PrayerCalendar, now: Date, horizon: TimeInterval = 48 * 3600,
-                                      place: String, calculated: Bool) throws -> [NotificationEvent] {
+                                      place: String, calculated: Bool, showIqama: Bool = true) throws -> [NotificationEvent] {
         var events: [String: NotificationEvent] = [:]
         let source = calculated ? " · Calculated by AlAdhan" : ""
         // Each day's view covers that day's prayers and its night, so step a day at a time.
@@ -76,8 +85,9 @@ enum Presentation {
             for prayer in view.today where !prayer.isSunrise {
                 guard let end = prayer.end else { continue }
                 let suffix = prayer.name == "Isha" ? " · Islamic midnight" : ""
+                let iqama = showIqama ? prayer.iqamaTime.map { "Iqama at \($0) · " } ?? "" : ""
                 add("prayer:\(prayer.name):\(prayer.start.timeIntervalSince1970)", prayer.start,
-                    "\(prayer.name) time", "Ends at \(ScheduleBuilder.time(end, timezone: view.timezone))\(suffix)")
+                    "\(prayer.name) time", "\(iqama)Ends at \(ScheduleBuilder.time(end, timezone: view.timezone))\(suffix)")
             }
             add("last-third:\(view.night.lastThird.timeIntervalSince1970)", view.night.lastThird,
                 "Last third of the night", "Until Fajr at \(ScheduleBuilder.time(view.night.end, timezone: view.timezone))")

@@ -11,6 +11,13 @@ export function prayerDetail(prayer, view) {
     return prayer.end <= view.now ? `Ended ${prayer.endTime}` : `Ends ${prayer.endTime}`;
 }
 
+// The open prayer's second line: the wait for its iqama while that is ahead, then its end.
+export function currentDetail(prayer, view, showIqama = true) {
+    if (showIqama && prayer.iqama != null && view.now < prayer.iqama)
+        return `Iqama in ${remaining(prayer.iqama, view.now)}`;
+    return `Ends at ${prayer.endTime}${prayer.name === 'Isha' ? ' · Islamic midnight' : ''}`;
+}
+
 // Overnight, the open prayer replaces today's row of the same name instead of adding a row.
 export function displayPrayers(view) {
     const {current} = view;

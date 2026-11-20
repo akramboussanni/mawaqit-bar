@@ -138,9 +138,12 @@ struct MenuContentView: View {
         }
         VStack(alignment: .leading, spacing: 8) {
             Text("Prayer times").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            let rows = Presentation.displayPrayers(view)
+            // Rows without an iqama keep the slot, so the adhan times stay in one column.
+            let iqamaColumn = store.showIqama && rows.contains { $0.iqamaTime != nil }
             VStack(spacing: 0) {
-                ForEach(Presentation.displayPrayers(view)) { prayer in
-                    prayerRow(prayer, view: view)
+                ForEach(rows) { prayer in
+                    prayerRow(prayer, view: view, iqamaColumn: iqamaColumn)
                 }
             }
         }
@@ -182,7 +185,7 @@ struct MenuContentView: View {
         }
     }
 
-    private func prayerRow(_ prayer: Prayer, view: ScheduleView) -> some View {
+    private func prayerRow(_ prayer: Prayer, view: ScheduleView, iqamaColumn: Bool) -> some View {
         let current = prayer.id == view.current?.id
         let next = prayer.id == view.next?.id
         let past = (prayer.end ?? .distantFuture) <= view.now
@@ -192,8 +195,8 @@ struct MenuContentView: View {
                 .foregroundStyle(current ? Color.accentColor : Color.secondary)
             VStack(alignment: .leading, spacing: 4) {
                 Text(prayer.name).font(.body.weight(current || next ? .semibold : .regular))
-                if current, let end = prayer.end {
-                    Text("Ends at \(time(end, view))\(prayer.name == "Isha" ? " · Islamic midnight" : "")")
+                if current {
+                    Text(Presentation.currentDetail(prayer, view: view, showIqama: store.showIqama))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -208,6 +211,12 @@ struct MenuContentView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Text(prayer.time).font(.body.weight(.medium)).monospacedDigit()
+            if iqamaColumn {
+                Text(prayer.iqamaTime ?? "")
+                    .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                    .frame(width: 34, alignment: .trailing)
+                    .help(prayer.iqamaTime == nil ? "" : "Iqama")
+            }
         }
         .foregroundStyle(past ? .secondary : .primary)
         .padding(.horizontal, 8).padding(.vertical, 6)
@@ -301,6 +310,8 @@ struct SettingsPage: View {
                 }
                 .pickerStyle(.segmented).labelsHidden()
             }
+            Divider()
+            toggle("Show iqama times", isOn: Binding(get: { store.showIqama }, set: store.setShowIqama))
         }
         section("Prayer reminders") {
             toggle("Notifications", isOn: Binding(get: { store.state.notificationsEnabled }, set: store.setNotifications))

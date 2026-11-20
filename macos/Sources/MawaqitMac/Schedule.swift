@@ -92,8 +92,14 @@ enum ScheduleBuilder {
         }
         for day in 0..<2 {
             for index in schedules[day].indices where !schedules[day][index].isSunrise {
-                schedules[day][index].end = index == 5 ? nights[day].midnight : schedules[day][index + 1].start
+                let end = index == 5 ? nights[day].midnight : schedules[day][index + 1].start
+                schedules[day][index].end = end
                 schedules[day][index].dayOffset = day - 1
+                // An iqama outside its own prayer's window is bad data, not a late congregation.
+                if let iqama = schedules[day][index].iqama, iqama >= end {
+                    schedules[day][index].iqama = nil
+                    schedules[day][index].iqamaTime = nil
+                }
             }
         }
         let today = schedules[1]
@@ -138,12 +144,37 @@ enum ScheduleBuilder {
         return formatter.string(from: date)
     }
 
+    /// Minutes from the adhan to the iqama, from "+N" or a clock time "HH:MM" (taken as the next
+    /// day when it is earlier than the adhan, as an Isha iqama after midnight is); nil if unreadable.
+    static func iqamaDelay(_ value: String, adhan: String) -> Int? {
+        let text = value.trimmingCharacters(in: .whitespaces)
+        if text.hasPrefix("+") {
+            let digits = text.dropFirst()
+            guard !digits.isEmpty, digits.allSatisfy({ $0.isASCII && $0.isNumber }),
+                  let minutes = Int(digits), minutes < 1440 else { return nil }
+            return minutes
+        }
+        func minutes(_ clock: String) -> Int? {
+            let pieces = clock.split(separator: ":", omittingEmptySubsequences: false)
+            guard pieces.count == 2, pieces[1].count == 2, let hour = Int(pieces[0]), let minute = Int(pieces[1]),
+                  (0...23).contains(hour), (0...59).contains(minute) else { return nil }
+            return hour * 60 + minute
+        }
+        guard let iqama = minutes(text), let start = minutes(adhan) else { return nil }
+        return (iqama - start + 1440) % 1440
+    }
+
     private static func prayers(for date: Date, data: PrayerCalendar, calendar: Calendar) throws -> [Prayer] {
         let components = calendar.dateComponents([.year, .month, .day], from: date)
         guard let month = components.month, let day = components.day,
               data.calendar.indices.contains(month - 1),
               let times = data.calendar[month - 1][String(day)], times.count >= 6 else {
             throw MawaqitError.message("No prayer times available for this date.")
+        }
+        var iqamas: [String]?
+        if data.iqamaEnabled != false, let months = data.iqamaCalendar, months.indices.contains(month - 1),
+           let values = months[month - 1][String(day)], values.count >= 5 {
+            iqamas = values
         }
         return try names.enumerated().map { index, name in
             let pieces = times[index].split(separator: ":")
@@ -158,7 +189,14 @@ enum ScheduleBuilder {
             guard let start = calendar.date(from: instant) else {
                 throw MawaqitError.message("Invalid prayer time.")
             }
-            return Prayer(name: name, time: times[index], start: start, isSunrise: index == 1)
+            var prayer = Prayer(name: name, time: times[index], start: start, isSunrise: index == 1)
+            // The iqama list skips sunrise: Fajr, Dhuhr, Asr, Maghrib, Isha.
+            if index != 1, let iqamas, let delay = iqamaDelay(iqamas[index == 0 ? 0 : index - 1], adhan: times[index]) {
+                let iqama = start.addingTimeInterval(TimeInterval(delay * 60))
+                prayer.iqama = iqama
+                prayer.iqamaTime = time(iqama, timezone: data.timezone)
+            }
+            return prayer
         }
     }
 }

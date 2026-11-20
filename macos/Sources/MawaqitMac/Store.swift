@@ -144,6 +144,15 @@ final class MawaqitStore: ObservableObject {
         UserDefaults.standard.set(enabled, forKey: "iconOnlyMenuBar")
     }
 
+    var showIqama: Bool { state.showIqama ?? true }
+
+    func setShowIqama(_ enabled: Bool) {
+        state.showIqama = enabled
+        save()
+        render()
+        scheduleNotifications()
+    }
+
     func setTitleMode(_ mode: TitleMode) {
         state.titleMode = mode
         save()
@@ -183,7 +192,8 @@ final class MawaqitStore: ObservableObject {
                 guard !Task.isCancelled else { return }
                 state = SavedState(notificationsEnabled: state.notificationsEnabled, slug: candidateSlug,
                     name: candidateName, calendar: calendar, fetched: Date(), year: utcYear(),
-                    source: .mawaqit, calculationQuery: nil, calculationMethod: nil, titleMode: state.titleMode)
+                    source: .mawaqit, calculationQuery: nil, calculationMethod: nil, titleMode: state.titleMode,
+                    showIqama: state.showIqama)
                 query = ""
                 results = []
                 calculatedSuggestion = nil
@@ -211,7 +221,7 @@ final class MawaqitStore: ObservableObject {
                 state = SavedState(notificationsEnabled: state.notificationsEnabled, slug: nil,
                     name: name ?? calculationQuery, calendar: result.calendar, fetched: Date(), year: utcYear(),
                     source: .aladhan, calculationQuery: calculationQuery, calculationMethod: result.method,
-                    titleMode: state.titleMode)
+                    titleMode: state.titleMode, showIqama: state.showIqama)
                 query = ""
                 results = []
                 calculatedSuggestion = nil
@@ -257,16 +267,16 @@ final class MawaqitStore: ObservableObject {
             let blocked = settings.authorizationStatus == .denied
             Task { @MainActor in self.notificationsBlocked = blocked }
         }
-        // Reschedule when the source, setting, or hour changes, so the 48-hour window keeps rolling.
+        // Reschedule when the source, settings, or hour changes, so the 48-hour window keeps rolling.
         let hour = Int(Date().timeIntervalSince1970 / 3600)
-        let key = "\(state.notificationsEnabled)|\(state.fetched?.timeIntervalSince1970 ?? 0)|\(hour)"
+        let key = "\(state.notificationsEnabled)|\(showIqama)|\(state.fetched?.timeIntervalSince1970 ?? 0)|\(hour)"
         guard key != scheduledNotificationsKey else { return }
         scheduledNotificationsKey = key
         center.removeAllPendingNotificationRequests()
         guard state.notificationsEnabled, let data = state.calendar, state.year == utcYear(),
               let events = try? Presentation.upcomingNotifications(data, now: Date(),
                   place: state.name ?? state.slug ?? state.calculationQuery ?? "Mawaqit",
-                  calculated: isCalculated) else { return }
+                  calculated: isCalculated, showIqama: showIqama) else { return }
         for event in events {
             let content = UNMutableNotificationContent()
             content.title = event.title

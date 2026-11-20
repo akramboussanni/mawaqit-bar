@@ -3,6 +3,28 @@ import Foundation
 struct PrayerCalendar: Codable, Equatable {
     let timezone: String
     let calendar: [[String: [String]]]
+    /// Like `calendar`, but each day is Fajr, Dhuhr, Asr, Maghrib, Isha as "HH:MM" or "+N" minutes
+    /// after the adhan. Missing from old saved state and from calculated times.
+    var iqamaCalendar: [[String: [String]]]?
+    var iqamaEnabled: Bool?
+
+    init(timezone: String, calendar: [[String: [String]]], iqamaCalendar: [[String: [String]]]? = nil,
+         iqamaEnabled: Bool? = nil) {
+        self.timezone = timezone
+        self.calendar = calendar
+        self.iqamaCalendar = iqamaCalendar
+        self.iqamaEnabled = iqamaEnabled
+    }
+
+    /// Iqama data is optional: if a mosque sends it in an odd shape, the adhan times still load.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        timezone = try container.decode(String.self, forKey: .timezone)
+        calendar = try container.decode([[String: [String]]].self, forKey: .calendar)
+        iqamaCalendar = (try? container.decodeIfPresent([[String: [String?]]].self, forKey: .iqamaCalendar))?
+            .map { $0.mapValues { $0.map { $0 ?? "" } } }
+        iqamaEnabled = try? container.decodeIfPresent(Bool.self, forKey: .iqamaEnabled)
+    }
 }
 
 enum PrayerSource: String, Codable {
@@ -32,6 +54,8 @@ struct SavedState: Codable {
     var calculationQuery: String?
     var calculationMethod: String?
     var titleMode: TitleMode?
+    /// nil means on.
+    var showIqama: Bool?
 }
 
 struct MosqueResult: Identifiable, Equatable {
@@ -48,6 +72,8 @@ struct Prayer: Identifiable, Equatable {
     let isSunrise: Bool
     var end: Date?
     var dayOffset = 0
+    var iqama: Date?
+    var iqamaTime: String?
 
     var id: String { "\(name):\(start.timeIntervalSince1970)" }
 }
