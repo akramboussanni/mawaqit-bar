@@ -80,6 +80,27 @@ struct ScheduleTests {
         #expect(Presentation.currentDetail(dhuhr, view: view) == "Iqama in 8min")
         #expect(Presentation.currentDetail(dhuhr, view: view, showIqama: false) == "Ends at 14:21")
         #expect(view.today.map(\.iqamaTime) == ["06:40", nil, "12:30", "14:35", nil, "18:30"])
+        #expect(view.today.map(\.iqamaLabel) == ["06:40", nil, "12:30", "14:35", nil, "18:30"])
+    }
+
+    @Test func kimonoRelativeIqamaShowsAsMinutesWithTheRealTimeKept() throws {
+        let json = #"""
+        {"timezone":"America/Toronto","days":[
+          {"date":"2027-01-01","times":["06:21","07:41","12:11","14:21","16:31","18:01"],
+           "iqama":["06:40","12:21","14:31",null,"18:30"],"iqamaAfter":[null,10,10,5,null]},
+          {"date":"2027-01-02","times":["06:22","07:42","12:12","14:22","16:32","18:02"],"iqama":null,"iqamaAfter":null},
+          {"date":"2026-12-31","times":["06:20","07:40","12:10","14:20","16:30","18:00"],"iqama":null}]}
+        """#
+        let calendar = try JSONDecoder().decode(KimonoTimetable.self, from: Data(json.utf8)).prayerCalendar()
+        #expect(calendar.iqamaCalendar?[0]["1"] == ["06:40", "+10", "+10", "+5", "18:30"])
+        // 12:13 in Toronto: Dhuhr is open; its iqama shows as +10 and counts down to 12:21.
+        let view = try ScheduleBuilder.build(calendar, now: try #require(ISO8601DateFormatter().date(from: "2027-01-01T17:13:00Z")))
+        #expect(view.today.map(\.iqamaLabel) == ["06:40", nil, "+10", "+10", "+5", "18:30"])
+        let dhuhr = try #require(view.current)
+        #expect(dhuhr.iqamaTime == "12:21")
+        #expect(Presentation.currentDetail(dhuhr, view: view) == "Iqama in 8min")
+        let events = try Presentation.upcomingNotifications(calendar, now: view.now, horizon: 3 * 3600, place: "Test", calculated: false)
+        #expect(events.first?.body == "Iqama at 14:31 · Ends at 16:31 (America/Toronto) · Test")
     }
 
     @Test func kimonoTimetableRefusesUnreadableDays() {
@@ -190,6 +211,11 @@ struct ScheduleTests {
         #expect(iqama["Asr"] == "16:30")
         #expect(iqama["Maghrib"] == .some(nil))
         #expect(iqama["Isha"] == "20:40")
+        // A relative iqama shows as the mosque set it; a fixed one shows its time.
+        let labels = Dictionary(uniqueKeysWithValues: view.today.map { ($0.name, $0.iqamaLabel) })
+        #expect(labels["Fajr"] == "+20" && labels["Dhuhr"] == "13:15" && labels["Asr"] == "+0")
+        #expect(labels["Maghrib"] == .some(nil) && labels["Sunrise"] == .some(nil))
+        #expect(view.today[0].iqamaAfter == 20 && view.today[2].iqamaAfter == nil)
         // 13:15 before Dhuhr's 13:20 adhan means tomorrow, past Asr: dropped rather than shown.
         var late = PrayerCalendar(timezone: "America/Toronto", calendar: Array(repeating: Dictionary(uniqueKeysWithValues:
             (1...31).map { (String($0), ["05:00", "06:30", "13:20", "16:30", "19:00", "20:30"]) }), count: 12),
@@ -220,6 +246,11 @@ struct ScheduleTests {
         let early = try ScheduleBuilder.build(data, now: try #require(formatter.date(from: "2026-09-19T17:07:00Z"))) // 13:07
         let dhuhr = try #require(early.current)
         #expect(Presentation.currentDetail(dhuhr, view: early) == "Iqama in 8min")
+        // "+10" on the row, but the countdown runs to the real time.
+        let asr = try ScheduleBuilder.build(data, now: try #require(formatter.date(from: "2026-09-19T20:32:00Z"))) // 16:32
+        let open = try #require(asr.current)
+        #expect(open.iqamaLabel == "+10" && open.iqamaTime == "16:40")
+        #expect(Presentation.currentDetail(open, view: asr) == "Iqama in 8min")
         #expect(Presentation.currentDetail(dhuhr, view: early, showIqama: false) == "Ends at 16:30")
         let after = try ScheduleBuilder.build(data, now: try #require(formatter.date(from: "2026-09-19T17:15:00Z"))) // 13:15
         #expect(Presentation.currentDetail(try #require(after.current), view: after) == "Ends at 16:30")

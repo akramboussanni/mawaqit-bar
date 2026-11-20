@@ -74,6 +74,7 @@ assert(iqamaTimes.Fajr === '05:20' && iqamaTimes.Dhuhr === '12:45' && iqamaTimes
 assert(iqamaTimes.Maghrib === null && iqamaTimes.Sunrise === null, 'Unreadable iqama and sunrise have none');
 assert(iqamaTimes.Isha === null, 'Isha iqama after Islamic midnight is dropped');
 assert(iqamaView.current.iqama - iqamaView.current.unix === 15 * 60, 'Iqama is an instant after the adhan');
+assert(iqamaView.today[0].iqamaAfter === 20 && iqamaView.today[3].iqamaAfter === 0 && iqamaView.current.iqamaAfter === null, 'Relative iqama keeps its minutes');
 assert(schedule({...withIqama, iqamaEnabled: false}, GLib.DateTime.new_from_iso8601('2026-09-12T16:40:00Z', null)).current.iqama === null, 'Mosque turned iqama off');
 assert(schedule(data, GLib.DateTime.new_from_iso8601('2026-09-12T16:40:00Z', null)).current.iqama === null, 'No iqama data');
 print('Calendar tests passed');

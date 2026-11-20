@@ -37,6 +37,7 @@ enum ScheduleBuilder {
                 if let iqama = schedules[day][index].iqama, iqama >= end {
                     schedules[day][index].iqama = nil
                     schedules[day][index].iqamaTime = nil
+                    schedules[day][index].iqamaAfter = nil
                 }
             }
         }
@@ -129,10 +130,14 @@ enum ScheduleBuilder {
             }
             var prayer = Prayer(name: name, time: times[index], start: start, isSunrise: index == 1)
             // The iqama list skips sunrise: Fajr, Dhuhr, Asr, Maghrib, Isha.
-            if index != 1, let iqamas, let delay = iqamaDelay(iqamas[index == 0 ? 0 : index - 1], adhan: times[index]) {
-                let iqama = start.addingTimeInterval(TimeInterval(delay * 60))
-                prayer.iqama = iqama
-                prayer.iqamaTime = time(iqama, timezone: data.timezone)
+            if index != 1, let iqamas {
+                let value = iqamas[index == 0 ? 0 : index - 1]
+                if let delay = iqamaDelay(value, adhan: times[index]) {
+                    let iqama = start.addingTimeInterval(TimeInterval(delay * 60))
+                    prayer.iqama = iqama
+                    prayer.iqamaTime = time(iqama, timezone: data.timezone)
+                    if value.trimmingCharacters(in: .whitespaces).hasPrefix("+") { prayer.iqamaAfter = delay }
+                }
             }
             return prayer
         }

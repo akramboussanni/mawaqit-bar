@@ -45,8 +45,17 @@ export function calendarFromTimetable(timetable) {
         calendar[month - 1][String(date)] = day.times;
         // Iqama is Fajr, Dhuhr, Asr, Maghrib, Isha as 'HH:MM' or null; a null becomes '', which
         // schedule() skips like any unreadable time.
-        if (Array.isArray(day.iqama) && day.iqama.length === 5)
-            iqamaCalendar[month - 1][String(date)] = day.iqama.map(time => typeof time === 'string' ? time : '');
+        // iqamaAfter (missing on older servers) has the minutes where the mosque set it relatively,
+        // which becomes '+N' so the row can show it that way.
+        const clock = Array.isArray(day.iqama) && day.iqama.length === 5 ? day.iqama : null;
+        const after = Array.isArray(day.iqamaAfter) && day.iqamaAfter.length === 5 ? day.iqamaAfter : null;
+        if (clock || after) {
+            iqamaCalendar[month - 1][String(date)] = Array.from({length: 5}, (_, i) => {
+                const minutes = after?.[i];
+                if (Number.isInteger(minutes) && minutes >= 0) return `+${minutes}`;
+                return typeof clock?.[i] === 'string' ? clock[i] : '';
+            });
+        }
     }
     return {timezone: timetable.timezone, calendar, iqamaCalendar};
 }

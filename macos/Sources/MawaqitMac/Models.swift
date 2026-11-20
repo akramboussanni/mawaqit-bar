@@ -51,11 +51,24 @@ struct KimonoPlace: Codable, Identifiable, Equatable {
 }
 
 /// One day of a timetable: `times` is Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha; `iqama`, when the
-/// mosque gives it, is Fajr, Dhuhr, Asr, Maghrib, Isha as "HH:MM" or null.
+/// mosque gives it, is Fajr, Dhuhr, Asr, Maghrib, Isha as "HH:MM" or null; `iqamaAfter` holds the
+/// minutes after the adhan where the mosque set the iqama that way (missing on older servers).
 struct KimonoDay: Codable, Equatable {
     let date: String
     let times: [String]
     var iqama: [String?]?
+    var iqamaAfter: [Int?]?
+
+    /// Each iqama in ScheduleBuilder's terms: "+N" when relative, else "HH:MM", else "" (none).
+    var iqamaValues: [String]? {
+        let clock = iqama?.count == 5 ? iqama : nil
+        let after = iqamaAfter?.count == 5 ? iqamaAfter : nil
+        guard clock != nil || after != nil else { return nil }
+        return (0..<5).map { index in
+            if let minutes = after?[index], minutes >= 0 { return "+\(minutes)" }
+            return clock?[index] ?? ""
+        }
+    }
 }
 
 struct KimonoTimetable: Codable, Equatable {
@@ -78,8 +91,8 @@ struct KimonoTimetable: Codable, Equatable {
             }
             calendar[parts[1] - 1][String(parts[2])] = day.times
             // A missing iqama becomes "", which ScheduleBuilder skips like any unreadable time.
-            if let iqama = day.iqama, iqama.count == 5 {
-                iqamaCalendar[parts[1] - 1][String(parts[2])] = iqama.map { $0 ?? "" }
+            if let iqama = day.iqamaValues {
+                iqamaCalendar[parts[1] - 1][String(parts[2])] = iqama
             }
         }
         return PrayerCalendar(timezone: timezone, calendar: calendar, iqamaCalendar: iqamaCalendar)
@@ -120,6 +133,11 @@ struct Prayer: Identifiable, Equatable {
     var dayOffset = 0
     var iqama: Date?
     var iqamaTime: String?
+    /// Minutes after the adhan, when the mosque sets the iqama that way ("+N") rather than as a time.
+    var iqamaAfter: Int?
+
+    /// What the row shows: "+10" for a relative iqama, otherwise its time.
+    var iqamaLabel: String? { iqamaTime.map { time in iqamaAfter.map { "+\($0)" } ?? time } }
 
     var id: String { "\(name):\(start.timeIntervalSince1970)" }
 }

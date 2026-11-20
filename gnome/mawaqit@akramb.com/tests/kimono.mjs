@@ -28,4 +28,11 @@ assert.deepEqual(withIqama.iqamaCalendar[0]['1'], ['06:40', '12:30', '', '', '18
 assert.equal(withIqama.iqamaCalendar[0]['2'], undefined, 'No iqama that day');
 assert.equal(withIqama.iqamaCalendar[0]['3'], undefined, 'An older feed without iqama');
 assert.equal(feed.iqamaCalendar[11]['31'], undefined, 'Null iqama');
+const relative = calendarFromTimetable({timezone: 'America/Toronto', days: [
+    {date: '2027-01-01', times, iqama: ['06:40', '12:20', '14:30', null, '18:10'], iqamaAfter: [null, 10, 10, 5, null]},
+    {date: '2027-01-02', times, iqama: null, iqamaAfter: [null, 0, null, null, null]},
+    {date: '2027-01-03', times, iqama: ['06:40', null, null, null, null], iqamaAfter: ['5', -1, null, null, null]}]});
+assert.deepEqual(relative.iqamaCalendar[0]['1'], ['06:40', '+10', '+10', '+5', '18:10'], 'Relative minutes win over the clock time');
+assert.deepEqual(relative.iqamaCalendar[0]['2'], ['', '+0', '', '', ''], '+0 is kept');
+assert.deepEqual(relative.iqamaCalendar[0]['3'], ['06:40', '', '', '', ''], 'Odd minutes are ignored');
 console.log('Kimono tests passed');

@@ -23,10 +23,13 @@ export function schedule(data, now = GLib.DateTime.new_now_utc()) {
             if (hour > 23 || minute > 59) throw new Error('Invalid prayer time.');
             const instant = GLib.DateTime.new(zone, date.get_year(), date.get_month(),
                 date.get_day_of_month(), hour, minute, 0);
-            const delay = iqamas && i !== 1 ? iqamaDelay(iqamas[i === 0 ? 0 : i - 1], times[i]) : null;
+            const value = iqamas && i !== 1 ? iqamas[i === 0 ? 0 : i - 1] : null;
+            const delay = value === null ? null : iqamaDelay(value, times[i]);
             const iqama = delay === null ? null : instant.to_unix() + delay * 60;
+            // Keep '+N' as minutes, so the row can show it the way the mosque set it.
+            const iqamaAfter = delay !== null && String(value).trim().startsWith('+') ? delay : null;
             return {name, time: times[i], unix: instant.to_unix(), sunrise: i === 1,
-                iqama, iqamaTime: iqama === null ? null : formatTime(iqama)};
+                iqama, iqamaTime: iqama === null ? null : formatTime(iqama), iqamaAfter};
         });
     });
     const timestamp = now.to_unix();
@@ -45,7 +48,8 @@ export function schedule(data, now = GLib.DateTime.new_now_utc()) {
         // An iqama outside its own prayer's window is bad data, not a late congregation.
         const iqama = prayer.iqama !== null && prayer.iqama < end ? prayer.iqama : null;
         return {...prayer, end, endTime: formatTime(end), dayOffset: index - 1,
-            iqama, iqamaTime: iqama === null ? null : prayer.iqamaTime};
+            iqama, iqamaTime: iqama === null ? null : prayer.iqamaTime,
+            iqamaAfter: iqama === null ? null : prayer.iqamaAfter};
     }));
     const today = windows[1];
     const next = [...today, ...schedules[2]].find(p => !p.sunrise && p.unix > timestamp);
