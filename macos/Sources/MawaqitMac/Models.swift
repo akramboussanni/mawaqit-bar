@@ -66,6 +66,7 @@ enum NightPhase: String {
 struct NightMilestones {
     let midnight: Date
     let lastThird: Date
+    let fajr: Date
     let sunrise: Date
     let active: Bool
     let phase: NightPhase?

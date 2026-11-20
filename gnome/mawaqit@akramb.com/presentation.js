@@ -25,15 +25,16 @@ export function nextSummary(view) {
 
 // In 'timeLeft' mode, name the open prayer and how long it has left; otherwise the next event.
 export function panelTitle(view, mode = 'nextPrayer') {
-    const {current, milestones, night, now} = view;
+    const {current, milestones, now} = view;
     if (mode === 'timeLeft' && current && now < current.end)
         return `${current.name}, ${remaining(current.end, now)} left`;
     if (milestones.active && now < milestones.midnight)
         return `Midnight in ${remaining(milestones.midnight, now)}`;
     if (milestones.active && now < milestones.lastThird)
         return `Last third in ${remaining(milestones.lastThird, now)}`;
-    if (milestones.active && now < night.end)
-        return `Fajr in ${remaining(night.end, now)}`;
+    // The cycle's own Fajr: after Fajr, view.night already points at tonight.
+    if (milestones.active && now < milestones.fajr)
+        return `Fajr in ${remaining(milestones.fajr, now)}`;
     if (milestones.active)
         return `Sunrise in ${remaining(milestones.sunrise, now)}`;
     return view.next ? `${view.next.name} in ${remaining(view.next.unix, now)}` : '';

@@ -28,8 +28,9 @@ enum Presentation {
         if milestones.active && now < milestones.lastThird {
             return "Last third in \(remaining(until: milestones.lastThird, now: now))"
         }
-        if milestones.active && now < view.night.end {
-            return "Fajr in \(remaining(until: view.night.end, now: now))"
+        // The cycle's own Fajr: after Fajr, view.night already points at tonight.
+        if milestones.active && now < milestones.fajr {
+            return "Fajr in \(remaining(until: milestones.fajr, now: now))"
         }
         if milestones.active {
             return "Sunrise in \(remaining(until: milestones.sunrise, now: now))"

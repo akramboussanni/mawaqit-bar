@@ -102,7 +102,7 @@ export function schedule(data, now = GLib.DateTime.new_now_utc()) {
     const sunrise = schedules[cycleIndex + 1][1];
     const cycleActive = timestamp >= schedules[cycleIndex][5].unix && timestamp < sunrise.unix;
     const milestones = {midnight: cycleNight.midnight, midnightTime: cycleNight.midnightTime,
-        lastThird: cycleNight.lastThird, lastThirdTime: cycleNight.lastThirdTime,
+        lastThird: cycleNight.lastThird, lastThirdTime: cycleNight.lastThirdTime, fajr: cycleNight.end,
         sunrise: sunrise.unix, sunriseTime: sunrise.time, active: cycleActive,
         phase: !cycleActive ? null : timestamp < cycleNight.midnight ? 'midnight'
             : timestamp < cycleNight.lastThird ? 'lastThird' : 'sunrise'};

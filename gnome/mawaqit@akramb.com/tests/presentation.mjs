@@ -4,7 +4,7 @@ import {remaining, prayerDetail, panelTitle, displayPrayers, nextSummary} from '
 const maghrib = {name: 'Maghrib', unix: 0, end: 3600, endTime: '20:31'};
 const isha = {name: 'Isha', unix: 3600, end: 18000, endTime: '00:31'};
 const view = {now: 2760, current: maghrib, next: isha,
-    milestones: {active: false, midnight: 18000, lastThird: 24000, sunrise: 36000},
+    milestones: {active: false, midnight: 18000, lastThird: 24000, fajr: 30000, sunrise: 36000},
     night: {end: 30000}};
 assert.equal(prayerDetail(isha, view), 'in 14min');
 assert.equal(prayerDetail(maghrib, view), 'Ends 20:31');
@@ -16,6 +16,8 @@ assert.equal(panelTitle({...night, now: 14400}), 'Midnight in 1h00min');
 assert.equal(panelTitle({...night, now: 18000}), 'Last third in 1h40min');
 assert.equal(panelTitle({...night, now: 24000}), 'Fajr in 1h40min');
 assert.equal(panelTitle({...night, now: 30000}), 'Sunrise in 1h40min');
+// After Fajr, view.night moves on to tonight, but the title still counts down to sunrise.
+assert.equal(panelTitle({...night, now: 30000, night: {end: 116400}}), 'Sunrise in 1h40min');
 assert.equal(panelTitle({...view, next: null}), '');
 assert.equal(panelTitle(view, 'timeLeft'), 'Maghrib, 14min left');
 assert.equal(panelTitle({...view, now: 0}, 'timeLeft'), 'Maghrib, 1h00min left');

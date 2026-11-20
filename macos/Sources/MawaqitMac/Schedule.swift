@@ -122,7 +122,7 @@ enum ScheduleBuilder {
             night: night,
             nightActive: night.start <= now && now < night.end,
             lastThirdActive: night.lastThird <= now && now < night.end,
-            milestones: NightMilestones(midnight: cycleNight.midnight, lastThird: cycleNight.lastThird,
+            milestones: NightMilestones(midnight: cycleNight.midnight, lastThird: cycleNight.lastThird, fajr: cycleNight.end,
                 sunrise: sunrise, active: cycleActive, phase: phase),
             now: now,
             dateText: formatter.string(from: now),

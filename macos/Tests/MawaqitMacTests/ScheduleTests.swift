@@ -105,13 +105,13 @@ struct ScheduleTests {
         for (instant, timeLeft, nextPrayer) in [
             ("2026-09-19T23:55:00Z", "Maghrib, 35min left", "Isha in 35min"), // 19:55 local
             ("2026-09-20T01:00:00Z", "Isha, 3h00min left", "Midnight in 3h00min"), // 21:00, Isha ends at midnight
-            ("2026-09-19T09:30:00Z", "Fajr, 1h00min left", nil), // 05:30
+            ("2026-09-19T09:30:00Z", "Fajr, 1h00min left", "Sunrise in 1h00min"), // 05:30
             ("2026-09-19T14:30:00Z", "Dhuhr in 2h30min", "Dhuhr in 2h30min"), // 10:30, no prayer open
             ("2026-09-20T04:30:00Z", "Last third in 1h10min", "Last third in 1h10min"), // 00:30, after midnight
-        ] as [(String, String, String?)] {
+        ] {
             let view = try ScheduleBuilder.build(data, now: try #require(formatter.date(from: instant)))
             #expect(Presentation.panelTitle(view, mode: .timeLeft) == timeLeft)
-            if let nextPrayer { #expect(Presentation.panelTitle(view) == nextPrayer) }
+            #expect(Presentation.panelTitle(view) == nextPrayer)
         }
         let old = try JSONDecoder().decode(SavedState.self, from: Data(#"{"notificationsEnabled":true}"#.utf8))
         #expect(old.titleMode == nil)
