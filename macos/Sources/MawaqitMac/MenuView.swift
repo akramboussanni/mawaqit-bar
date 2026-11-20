@@ -305,11 +305,11 @@ struct SettingsPage: View {
         section("Prayer reminders") {
             toggle("Notifications", isOn: Binding(get: { store.state.notificationsEnabled }, set: store.setNotifications))
             if store.state.notificationsEnabled && store.notificationsBlocked {
-                Label("Notifications are turned off for Mawaqit in System Settings.", systemImage: "bell.slash")
+                Label("Notifications are turned off for Kimono Prayer in System Settings.", systemImage: "bell.slash")
                     .font(.caption).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Open Notification Settings") {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=com.akramb.mawaqit")!)
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=app.kimono.prayer.menubar")!)
                 }
             } else {
                 Text("Alerts at each prayer and the last third of the night.")

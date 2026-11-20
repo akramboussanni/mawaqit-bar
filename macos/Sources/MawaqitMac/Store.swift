@@ -29,7 +29,7 @@ final class MawaqitStore: ObservableObject {
 
     private var stateURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Mawaqit", isDirectory: true).appendingPathComponent("state.json")
+        return base.appendingPathComponent("Kimono Prayer", isDirectory: true).appendingPathComponent("state.json")
     }
 
     var hasLocation: Bool { state.slug != nil || state.calculationQuery != nil }
@@ -159,7 +159,7 @@ final class MawaqitStore: ObservableObject {
             }
             launchAtLogin = SMAppService.mainApp.status == .enabled
             if enabled && !launchAtLogin {
-                status = "Approve Mawaqit under System Settings → General → Login Items."
+                status = "Approve Kimono Prayer under System Settings → General → Login Items."
             }
         } catch {
             launchAtLogin = SMAppService.mainApp.status == .enabled
