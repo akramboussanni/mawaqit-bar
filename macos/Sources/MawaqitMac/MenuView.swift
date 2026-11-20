@@ -26,7 +26,7 @@ struct MenuContentView: View {
     @ViewBuilder
     private var schedulePage: some View {
             search
-            if let reason = store.locationUnavailable {
+            if store.isConnected, let reason = store.locationUnavailable {
                 // Disabled buttons show no tooltip on macOS, so say why the arrow is grayed out.
                 Label(reason, systemImage: "location.slash")
                     .font(.caption).foregroundStyle(.secondary)
@@ -55,22 +55,28 @@ struct MenuContentView: View {
 
     private var search: some View {
         GlassRow { HStack(spacing: 10) {
-            NativeSearchField(text: $store.query, onSubmit: store.submitSearch)
+            NativeSearchField(text: $store.query,
+                placeholder: store.isConnected ? "Mosque, city or coordinates" : "Paste your Kimono Prayer link",
+                onSubmit: store.submitSearch)
                 .disabled(store.isLocating)
                 .accessibilityLabel("Search mosques or locations")
             if store.isLoading { ProgressView().controlSize(.small) }
-            Button { store.useCurrentLocation() } label: {
-                Group {
-                    if store.isLocating { ProgressView().controlSize(.small) }
-                    else { Image(systemName: "location") }
-                }
-                .glassLabel(in: .circle)
-            }
-            .modifier(GlassButton(round: true))
-            .disabled(store.isLocating || store.isLoading || store.locationUnavailable != nil)
-            .help(store.locationUnavailable ?? "Use current location")
-            .accessibilityLabel("Use current location")
+            if store.isConnected { locationButton }
         } }
+    }
+
+    private var locationButton: some View {
+        Button { store.useCurrentLocation() } label: {
+            Group {
+                if store.isLocating { ProgressView().controlSize(.small) }
+                else { Image(systemName: "location") }
+            }
+            .glassLabel(in: .circle)
+        }
+        .modifier(GlassButton(round: true))
+        .disabled(store.isLocating || store.isLoading || store.locationUnavailable != nil)
+        .help(store.locationUnavailable ?? "Use current location")
+        .accessibilityLabel("Use current location")
     }
 
     private var results: some View {
@@ -243,6 +249,7 @@ struct MenuContentView: View {
 /// NSSearchField supplies the system bezel, clear button, and editing behavior.
 private struct NativeSearchField: NSViewRepresentable {
     @Binding var text: String
+    var placeholder: String
     var onSubmit: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -252,18 +259,22 @@ private struct NativeSearchField: NSViewRepresentable {
         field.controlSize = .small
         field.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         field.setContentHuggingPriority(.required, for: .vertical)
-        field.placeholderString = "Mosque, city or coordinates"
         field.delegate = context.coordinator
         field.target = context.coordinator
         field.action = #selector(Coordinator.submit(_:))
         field.sendsWholeSearchString = true
-        field.setAccessibilityLabel("Mosque, city or coordinates")
+        field.placeholderString = placeholder
+        field.setAccessibilityLabel(placeholder)
         return field
     }
 
     func updateNSView(_ field: NSSearchField, context: Context) {
         context.coordinator.parent = self
         if field.stringValue != text { field.stringValue = text }
+        if field.placeholderString != placeholder {
+            field.placeholderString = placeholder
+            field.setAccessibilityLabel(placeholder)
+        }
         field.isEnabled = context.environment.isEnabled
     }
 
@@ -326,6 +337,15 @@ struct SettingsPage: View {
                     Text("Calculated times may differ from your local mosque or religious authority.")
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        if store.isConnected {
+            section("Kimono") {
+                HStack {
+                    Text("Connected")
+                    Spacer()
+                    Button("Disconnect") { store.disconnect() }.controlSize(.small)
                 }
             }
         }

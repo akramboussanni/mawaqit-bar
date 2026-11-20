@@ -23,6 +23,8 @@ struct CalculatedPrayerCalendar {
 
 struct SavedState: Codable {
     var notificationsEnabled = true
+    /// The personal Kimono Prayer link; nil until someone connects.
+    var link: String?
     var slug: String?
     var name: String?
     var calendar: PrayerCalendar?

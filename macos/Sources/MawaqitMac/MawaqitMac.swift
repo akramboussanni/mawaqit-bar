@@ -36,6 +36,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return false
     }
 
+    /// mawaqit-kimono://connect?link=… from Kimono Prayer's "Connect" button.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let link = urls.lazy.compactMap({ KimonoLink.parse($0.absoluteString) }).first else { return }
+        store.connect(link)
+        store.showingSettings = false
+        showPanel()
+    }
+
     private func showPanel() {
         store.tick()
         if !popover.isVisible { popover.show(below: statusItem?.button) }

@@ -10,7 +10,7 @@ final class MawaqitStore: ObservableObject {
     @Published var query = ""
     @Published var results: [MosqueResult] = []
     @Published var calculatedSuggestion: String?
-    @Published var status = "Enter a mosque or city and press Return"
+    @Published var status = ""
     @Published var isLoading = false
     @Published var isLocating = false
     @Published var locationUnavailable: String?
@@ -32,11 +32,13 @@ final class MawaqitStore: ObservableObject {
         return base.appendingPathComponent("Kimono Prayer", isDirectory: true).appendingPathComponent("state.json")
     }
 
+    var isConnected: Bool { state.link != nil }
     var hasLocation: Bool { state.slug != nil || state.calculationQuery != nil }
     var isCalculated: Bool { state.source == .aladhan || (state.slug == nil && state.calculationQuery != nil) }
 
     init() {
         load()
+        if !isConnected { status = Self.connectPrompt }
         render()
         locationLookup.onAvailabilityChange = { [weak self] reason in self?.locationUnavailable = reason }
         if state.notificationsEnabled {
@@ -77,7 +79,47 @@ final class MawaqitStore: ObservableObject {
         }
     }
 
+    static let connectPrompt = "Paste your link from Kimono Prayer and press Return."
+
+    /// A Kimono Prayer link, from the search field or a mawaqit-kimono://connect address.
+    func connect(_ link: URL) {
+        searchTask?.cancel()
+        refreshTask?.cancel()
+        let notifications = state.notificationsEnabled
+        state = SavedState(notificationsEnabled: notifications, link: link.absoluteString)
+        query = ""
+        results = []
+        calculatedSuggestion = nil
+        status = ""
+        save()
+        render()
+        scheduleNotifications()
+        refresh()
+    }
+
+    func disconnect() {
+        searchTask?.cancel()
+        refreshTask?.cancel()
+        state = SavedState(notificationsEnabled: state.notificationsEnabled)
+        query = ""
+        results = []
+        calculatedSuggestion = nil
+        status = Self.connectPrompt
+        isLoading = false
+        save()
+        render()
+        scheduleNotifications()
+    }
+
     func submitSearch() {
+        if let link = KimonoLink.parse(query) {
+            connect(link)
+            return
+        }
+        guard isConnected else {
+            status = Self.connectPrompt
+            return
+        }
         searchTask?.cancel()
         results = []
         calculatedSuggestion = nil
