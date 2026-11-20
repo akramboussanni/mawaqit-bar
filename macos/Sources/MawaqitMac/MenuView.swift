@@ -53,7 +53,7 @@ struct MenuContentView: View {
     private var search: some View {
         GlassRow { HStack(spacing: 10) {
             NativeSearchField(text: $store.query,
-                placeholder: store.isConnected ? "Mosque, city or coordinates" : "Paste your Kimono Prayer link",
+                placeholder: store.isConnected ? "Mosque, city or coordinates" : "Paste your Kimono Times link",
                 onSubmit: store.submitSearch)
                 .disabled(store.isLocating)
                 .accessibilityLabel("Search mosques or locations")
@@ -100,7 +100,7 @@ struct MenuContentView: View {
     @ViewBuilder
     private func schedule(_ view: ScheduleView) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(store.state.place?.name ?? "Kimono Prayer")
+            Text(store.state.place?.name ?? "Kimono Times")
                 .font(.headline).lineLimit(1)
             Text(view.dateText).font(.subheadline).foregroundStyle(.secondary)
             HStack(spacing: 5) {
@@ -294,7 +294,7 @@ struct SettingsPage: View {
         section("Prayer reminders") {
             toggle("Notifications", isOn: Binding(get: { store.state.notificationsEnabled }, set: store.setNotifications))
             if store.state.notificationsEnabled && store.notificationsBlocked {
-                Label("Notifications are turned off for Kimono Prayer in System Settings.", systemImage: "bell.slash")
+                Label("Notifications are turned off for Kimono Times in System Settings.", systemImage: "bell.slash")
                     .font(.caption).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Open Notification Settings") {

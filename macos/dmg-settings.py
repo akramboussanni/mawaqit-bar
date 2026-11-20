@@ -1,12 +1,12 @@
-# dmgbuild layout for Kimono Prayer.dmg; release.sh passes app, icon and background via -D.
+# dmgbuild layout for Kimono Times.dmg; release.sh passes app, icon and background via -D.
 app = defines["app"]
 
 format = "UDZO"
-volume_name = "Kimono Prayer"
+volume_name = "Kimono Times"
 icon = defines["icon"]
 files = [app]
 symlinks = {"Applications": "/Applications"}
-hide_extensions = ["Kimono Prayer.app"]
+hide_extensions = ["Kimono Times.app"]
 
 background = defines["background"]
 window_rect = ((200, 140), (640, 400))
@@ -22,4 +22,4 @@ arrange_by = None
 icon_size = 128
 text_size = 14
 # Centres line up with the arrow drawn by Assets/make-dmg-background.swift.
-icon_locations = {"Kimono Prayer.app": (170, 200), "Applications": (470, 200)}
+icon_locations = {"Kimono Times.app": (170, 200), "Applications": (470, 200)}

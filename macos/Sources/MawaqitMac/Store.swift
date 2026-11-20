@@ -28,7 +28,7 @@ final class MawaqitStore: ObservableObject {
 
     private var stateURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Kimono Prayer", isDirectory: true).appendingPathComponent("state.json")
+        return base.appendingPathComponent("Kimono Times", isDirectory: true).appendingPathComponent("state.json")
     }
 
     var isConnected: Bool { state.link != nil }
@@ -80,9 +80,9 @@ final class MawaqitStore: ObservableObject {
         }
     }
 
-    static let connectPrompt = "Paste your link from Kimono Prayer and press Return."
+    static let connectPrompt = "Paste your link from Kimono Times and press Return."
 
-    /// A Kimono Prayer link, from the search field or a mawaqit-kimono://connect address.
+    /// A Kimono Times link, from the search field or a mawaqit-kimono://connect address.
     func connect(_ link: URL) {
         searchTask?.cancel()
         refreshTask?.cancel()
@@ -193,7 +193,7 @@ final class MawaqitStore: ObservableObject {
             }
             launchAtLogin = SMAppService.mainApp.status == .enabled
             if enabled && !launchAtLogin {
-                status = "Approve Kimono Prayer under System Settings → General → Login Items."
+                status = "Approve Kimono Times under System Settings → General → Login Items."
             }
         } catch {
             launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -291,7 +291,7 @@ final class MawaqitStore: ObservableObject {
         center.removeAllPendingNotificationRequests()
         guard state.notificationsEnabled, let data = state.calendar,
               let events = try? Presentation.upcomingNotifications(data, now: Date(),
-                  place: state.place?.name ?? "Kimono Prayer",
+                  place: state.place?.name ?? "Kimono Times",
                   calculated: isCalculated) else { return }
         for event in events {
             let content = UNMutableNotificationContent()

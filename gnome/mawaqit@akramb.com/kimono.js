@@ -1,8 +1,8 @@
-// The personal link Kimono Prayer hands out (https://<kimono>/api/v1/prayer/feed/<token>), pasted
+// The personal link Kimono Times hands out (https://<kimono>/api/v1/prayer/feed/<token>), pasted
 // as is or wrapped in mawaqit-kimono://connect?link=<link>. It stands in for signing in.
 // No imports, so the tests run under plain node as well as gjs.
 
-export const CONNECT_PROMPT = 'Paste your link from Kimono Prayer and press Enter.';
+export const CONNECT_PROMPT = 'Paste your link from Kimono Times and press Enter.';
 
 const FEED = /^(https?):\/\/([^/?#\s]+)(\/api\/v1\/prayer\/feed\/[A-Za-z0-9_-]+)\/?(?:[?#]\S*)?$/i;
 const CONNECT = /^mawaqit-kimono:\/\/connect\/?\?(\S*)$/i;

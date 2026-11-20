@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return false
     }
 
-    /// mawaqit-kimono://connect?link=… from Kimono Prayer's "Connect" button.
+    /// mawaqit-kimono://connect?link=… from Kimono Times's "Connect" button.
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let link = urls.lazy.compactMap({ KimonoLink.parse($0.absoluteString) }).first else { return }
         store.connect(link)
@@ -61,7 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if let button = statusItem.button {
             button.identifier = NSUserInterfaceItemIdentifier("KimonoPrayer")
             button.setAccessibilityIdentifier("KimonoPrayer")
-            button.image = NSImage(systemSymbolName: "moon.stars.fill", accessibilityDescription: "Kimono Prayer")
+            button.image = NSImage(systemSymbolName: "moon.stars.fill", accessibilityDescription: "Kimono Times")
             button.image?.isTemplate = true
             button.imagePosition = .imageLeading
             button.target = self
@@ -78,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             statusItem.isVisible = true
             statusItem.length = iconOnly ? NSStatusItem.squareLength : NSStatusItem.variableLength
             statusItem.button?.title = iconOnly || title.isEmpty ? "" : " \(title)"
-            statusItem.button?.toolTip = title.isEmpty ? "Kimono Prayer" : title
+            statusItem.button?.toolTip = title.isEmpty ? "Kimono Times" : title
         }.store(in: &cancellables)
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.store.tick() }
@@ -90,10 +90,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard let statusItem, let button = statusItem.button else { return }
         if NSApp.currentEvent?.type == .rightMouseUp {
             let menu = NSMenu()
-            addCommand("Open Kimono Prayer", action: #selector(showMainWindow), to: menu)
+            addCommand("Open Kimono Times", action: #selector(showMainWindow), to: menu)
             addCommand("Settings…", action: #selector(showSettings), key: ",", to: menu)
             menu.addItem(.separator())
-            addCommand("Quit Kimono Prayer", action: #selector(quit), key: "q", to: menu)
+            addCommand("Quit Kimono Times", action: #selector(quit), key: "q", to: menu)
             statusItem.menu = menu
             button.performClick(nil)
             statusItem.menu = nil
@@ -112,13 +112,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     private func installMainMenu() {
         let main = NSMenu()
-        let appItem = main.addItem(withTitle: "Kimono Prayer", action: nil, keyEquivalent: "")
-        let appMenu = NSMenu(title: "Kimono Prayer")
+        let appItem = main.addItem(withTitle: "Kimono Times", action: nil, keyEquivalent: "")
+        let appMenu = NSMenu(title: "Kimono Times")
         appItem.submenu = appMenu
-        addCommand("About Kimono Prayer", action: #selector(showAbout), to: appMenu)
+        addCommand("About Kimono Times", action: #selector(showAbout), to: appMenu)
         addCommand("Settings…", action: #selector(showSettings), key: ",", to: appMenu)
         appMenu.addItem(.separator())
-        addCommand("Quit Kimono Prayer", action: #selector(quit), key: "q", to: appMenu)
+        addCommand("Quit Kimono Times", action: #selector(quit), key: "q", to: appMenu)
         let editItem = main.addItem(withTitle: "Edit", action: nil, keyEquivalent: "")
         let edit = NSMenu(title: "Edit")
         editItem.submenu = edit

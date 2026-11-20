@@ -1,6 +1,6 @@
 import Foundation
 
-/// Prayer times from Kimono, through the person's own Kimono Prayer link. Kimono does the
+/// Prayer times from Kimono, through the person's own Kimono Times link. Kimono does the
 /// Mawaqit, MasjidBox and calculated lookups; this app only reads the result.
 struct KimonoService {
     private let session: URLSession
@@ -67,7 +67,7 @@ struct KimonoService {
                 struct Problem: Decodable { let error: String }
                 let message = (try? JSONDecoder().decode(Problem.self, from: data))?.error
                 if status == 401 {
-                    throw MawaqitError.linkExpired(message ?? "This link no longer works. Connect again from Kimono Prayer.")
+                    throw MawaqitError.linkExpired(message ?? "This link no longer works. Connect again from Kimono Times.")
                 }
                 throw MawaqitError.message(message ?? "Kimono returned \(status). Try again later.")
             }

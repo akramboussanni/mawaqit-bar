@@ -29,7 +29,7 @@ export default class MawaqitExtension extends Extension {
         } catch (_) { /* First launch has no saved mosque. */ }
         this._state ??= {};
         this._data = this._state.calendar;
-        this._button = new PanelMenu.Button(0.0, 'Kimono Prayer');
+        this._button = new PanelMenu.Button(0.0, 'Kimono Times');
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
         box.add_child(new St.Icon({icon_name: 'weather-clear-night-symbolic', style_class: 'system-status-icon'}));
         this._panelLabel = new St.Label({text: '', y_align: Clutter.ActorAlign.CENTER});
@@ -141,7 +141,7 @@ export default class MawaqitExtension extends Extension {
             const view = schedule(this._data);
             for (const event of dueNotifications(view, since, this._notificationSeen)) {
                 const source = this._isCalculated() ? ' · Calculated' : '';
-                Main.notify(event.title, `${event.body} (${view.timezone}) · ${this._state.place?.name ?? 'Kimono Prayer'}${source}`);
+                Main.notify(event.title, `${event.body} (${view.timezone}) · ${this._state.place?.name ?? 'Kimono Times'}${source}`);
                 this._notificationSeen.add(event.id);
             }
             if (this._notificationSeen.size > 30)
@@ -188,11 +188,11 @@ export default class MawaqitExtension extends Extension {
         return entry;
     }
 
-    // Everything goes through the person's Kimono Prayer link. Non-200 answers carry {error};
+    // Everything goes through the person's Kimono Times link. Non-200 answers carry {error};
     // 401 means the link was renewed.
     async _request(url, {method = 'GET', body} = {}) {
         const message = Soup.Message.new(method, url);
-        if (!message) throw new Error('The saved Kimono Prayer link is invalid.');
+        if (!message) throw new Error('The saved Kimono Times link is invalid.');
         const cancel = new Gio.Cancellable();
         this._requests.add(cancel);
         message.get_request_headers().append('Accept', 'application/json');
@@ -210,7 +210,7 @@ export default class MawaqitExtension extends Extension {
             try { payload = JSON.parse(text); } catch (_) { /* Not JSON: said below. */ }
             if (message.status_code !== 200) {
                 const error = new Error(payload?.error ?? (message.status_code === 401
-                    ? 'This link no longer works. Connect again from Kimono Prayer.'
+                    ? 'This link no longer works. Connect again from Kimono Times.'
                     : `Kimono returned ${message.status_code}. Try again later.`));
                 error.statusCode = message.status_code;
                 throw error;
@@ -355,7 +355,7 @@ export default class MawaqitExtension extends Extension {
     }
 
     _locationError(error) {
-        console.warn(`Kimono Prayer location request: ${error.message}`);
+        console.warn(`Kimono Times location request: ${error.message}`);
         this._error(new Error('Could not access your location. Enable Location Services for GNOME Shell in Settings → Privacy, or search for a city.'));
     }
 
@@ -363,7 +363,7 @@ export default class MawaqitExtension extends Extension {
         return Boolean(this._state.link);
     }
 
-    // A Kimono Prayer link replaces whatever was saved, keeping the switches, and loads at once.
+    // A Kimono Times link replaces whatever was saved, keeping the switches, and loads at once.
     _connect(link) {
         this._generation++;
         this._searchGeneration++;
@@ -464,7 +464,7 @@ export default class MawaqitExtension extends Extension {
 
     _render() {
         const connected = this._connected();
-        this._searchEntry.hint_text = connected ? 'Mosque, city, coordinates or URL' : 'Paste your Kimono Prayer link';
+        this._searchEntry.hint_text = connected ? 'Mosque, city, coordinates or URL' : 'Paste your Kimono Times link';
         this._locationButton.visible = connected;
         this._disconnectAction.actor.visible = connected;
         const active = this._hasLocation();
@@ -485,7 +485,7 @@ export default class MawaqitExtension extends Extension {
         try {
             const view = schedule(this._data);
             this._rows.removeAll();
-            this._title.label.text = this._state.place?.name ?? 'Kimono Prayer';
+            this._title.label.text = this._state.place?.name ?? 'Kimono Times';
             const cached = Date.now() - this._state.fetched > 3600000 ? ' · cached' : '';
             this._subtitle.label.text = `${view.date} · ${view.timezone}${cached}`;
             const detail = this._state.place?.detail;

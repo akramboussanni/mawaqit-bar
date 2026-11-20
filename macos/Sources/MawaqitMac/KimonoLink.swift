@@ -1,6 +1,6 @@
 import Foundation
 
-/// The personal link Kimono Prayer hands out (`https://<kimono>/api/v1/prayer/feed/<token>`), pasted as is
+/// The personal link Kimono Times hands out (`https://<kimono>/api/v1/prayer/feed/<token>`), pasted as is
 /// or wrapped in `mawaqit-kimono://connect?link=<link>`. It stands in for signing in.
 enum KimonoLink {
     static let scheme = "mawaqit-kimono"

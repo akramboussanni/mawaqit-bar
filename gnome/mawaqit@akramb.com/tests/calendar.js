@@ -60,7 +60,7 @@ assert(eveningCycle.phase === 'midnight', 'Following Isha restarts cycle');
 assert(eveningCycle.sunrise === GLib.DateTime.new_from_iso8601('2026-09-14T10:30:00Z', null).to_unix(), 'Night uses upcoming sunrise');
 if (ARGV[0]) {
     const [, bytes] = Gio.File.new_for_path(ARGV[0]).load_contents(null);
-    // A saved answer from a Kimono Prayer link: gjs -m tests/calendar.js mine.json
+    // A saved answer from a Kimono Times link: gjs -m tests/calendar.js mine.json
     const live = calendarFromTimetable(JSON.parse(new TextDecoder().decode(bytes)).timetable);
     assert(schedule(live).today.length === 6, 'Live Kimono timetable');
     print(`Live calendar OK: ${live.timezone}`);

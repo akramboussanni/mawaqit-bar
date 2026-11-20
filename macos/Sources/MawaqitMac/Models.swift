@@ -18,7 +18,7 @@ enum PlaceKind: String, Codable {
     }
 }
 
-/// A mosque or a position, as Kimono Prayer names it (`Place` in Kimono's prayer model).
+/// A mosque or a position, as Kimono Times names it (`Place` in Kimono's prayer model).
 struct KimonoPlace: Codable, Identifiable, Equatable {
     let id: String
     let kind: PlaceKind
@@ -72,7 +72,7 @@ enum TitleMode: String, Codable, CaseIterable {
 
 struct SavedState: Codable {
     var notificationsEnabled = true
-    /// The personal Kimono Prayer link; nil until someone connects.
+    /// The personal Kimono Times link; nil until someone connects.
     var link: String?
     var place: KimonoPlace?
     var calendar: PrayerCalendar?

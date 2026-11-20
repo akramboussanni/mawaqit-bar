@@ -1,7 +1,7 @@
 {
   "uuid": "prayer@kimono.app",
-  "name": "Kimono Prayer",
-  "description": "Your prayer times from Kimono Prayer in the GNOME top bar: the mosque or place you picked in Kimono, prayer deadlines, night milestones and notifications.",
+  "name": "Kimono Times",
+  "description": "Your prayer times from Kimono Times in the GNOME top bar: the mosque or place you picked in Kimono, prayer deadlines, night milestones and notifications.",
   "shell-version": [
     "45",
     "46",
