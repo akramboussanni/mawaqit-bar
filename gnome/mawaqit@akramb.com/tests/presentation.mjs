@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {remaining, prayerDetail, currentDetail, panelTitle, displayPrayers, nextSummary} from '../presentation.js';
-import {iqamaDelay} from '../iqama.js';
+import {iqamaDelay, iqamaLabel} from '../iqama.js';
 import {dueNotifications} from '../notifications.js';
 
 const maghrib = {name: 'Maghrib', unix: 0, end: 3600, endTime: '20:31'};
@@ -52,4 +52,11 @@ const due = {now: 30, today: [dhuhr], night: {lastThird: 99999, endTime: '05:00'
 assert.equal(dueNotifications(due, -10)[0].body, 'Iqama at 13:15 · Ends at 16:30');
 assert.equal(dueNotifications(due, -10, new Set(), false)[0].body, 'Ends at 16:30');
 assert.equal(dueNotifications({...due, today: [{...dhuhr, iqamaTime: null}]}, -10)[0].body, 'Ends at 16:30');
+assert.equal(iqamaLabel({iqamaTime: '16:40', iqamaAfter: 10}), '+10', 'Relative iqama shows as set');
+assert.equal(iqamaLabel({iqamaTime: '16:40', iqamaAfter: 0}), '+0');
+assert.equal(iqamaLabel({iqamaTime: '13:15', iqamaAfter: null}), '13:15', 'Fixed iqama shows its time');
+assert.equal(iqamaLabel({iqamaTime: null, iqamaAfter: null}), '', 'No iqama');
+const relative = {...dhuhr, iqamaAfter: 15};
+assert.equal(currentDetail(relative, {now: 420}), 'Iqama in 8min', 'Countdown uses the real time');
+assert.equal(dueNotifications({...due, today: [relative]}, -10)[0].body, 'Iqama at 13:15 · Ends at 16:30', 'Notification names the real time');
 console.log('Prayer-row ownership, panel milestone phases, time-left titles and iqama passed.');

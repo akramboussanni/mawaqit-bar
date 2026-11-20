@@ -16,3 +16,9 @@ export function iqamaDelay(value, adhan) {
     const iqama = minutes(text), start = minutes(adhan);
     return iqama === null || start === null ? null : (iqama - start + 1440) % 1440;
 }
+
+/** What a row shows: '+10' for a relative iqama, otherwise its time. */
+export function iqamaLabel(prayer) {
+    if (!prayer?.iqamaTime) return '';
+    return prayer.iqamaAfter != null ? `+${prayer.iqamaAfter}` : prayer.iqamaTime;
+}

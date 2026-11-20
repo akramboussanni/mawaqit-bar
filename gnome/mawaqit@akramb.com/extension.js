@@ -10,6 +10,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {parseCalendar, parseCalculatedCalendar, schedule, mosqueSlug} from './calendar.js';
 import {dueNotifications} from './notifications.js';
+import {iqamaLabel} from './iqama.js';
 import {remaining, prayerDetail, currentDetail, panelTitle, displayPrayers, nextSummary} from './presentation.js';
 
 export default class MawaqitExtension extends Extension {
@@ -533,8 +534,9 @@ export default class MawaqitExtension extends Extension {
             const rows = displayPrayers(view);
             // Rows without an iqama keep the slot, so the adhan times stay in one column.
             const iqamaColumn = showIqama && rows.some(p => p.iqamaTime);
-            const iqamaLabel = prayer => new St.Label({text: prayer.iqamaTime ?? '', style_class: 'mawaqit-iqama-time',
-                y_align: Clutter.ActorAlign.CENTER});
+            // Popup menu rows have no tooltips, so the real time of a '+N' iqama goes to screen readers.
+            const iqamaText = prayer => new St.Label({text: iqamaLabel(prayer), style_class: 'mawaqit-iqama-time',
+                accessible_name: prayer.iqamaTime ? `Iqama at ${prayer.iqamaTime}` : '', y_align: Clutter.ActorAlign.CENTER});
             for (const prayer of rows) {
                 const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
                 item.add_style_class_name('mawaqit-prayer-row');
@@ -547,7 +549,7 @@ export default class MawaqitExtension extends Extension {
                     const headline = new St.BoxLayout({x_expand: true, style_class: 'mawaqit-current-headline'});
                     headline.add_child(new St.Label({text: prayer.name, x_expand: true}));
                     headline.add_child(new St.Label({text: prayer.time}));
-                    if (iqamaColumn) headline.add_child(iqamaLabel(prayer));
+                    if (iqamaColumn) headline.add_child(iqamaText(prayer));
                     details.add_child(headline);
                     const end = new St.Label({text: currentDetail(prayer, view, showIqama), style_class: 'mawaqit-current-detail'});
                     end.clutter_text.line_wrap = true;
@@ -560,7 +562,7 @@ export default class MawaqitExtension extends Extension {
                     if (prayer === view.next) item.add_style_class_name('mawaqit-next');
                     else if (prayer.end <= now) item.add_style_class_name('mawaqit-past');
                     item.add_child(new St.Label({text: prayer.time, style_class: 'mawaqit-prayer-time', y_align: Clutter.ActorAlign.CENTER}));
-                    if (iqamaColumn) item.add_child(iqamaLabel(prayer));
+                    if (iqamaColumn) item.add_child(iqamaText(prayer));
                 }
                 this._rows.addMenuItem(item);
             }

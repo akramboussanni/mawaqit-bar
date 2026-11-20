@@ -74,6 +74,11 @@ struct Prayer: Identifiable, Equatable {
     var dayOffset = 0
     var iqama: Date?
     var iqamaTime: String?
+    /// Minutes after the adhan, when the mosque sets the iqama that way ("+N") rather than as a time.
+    var iqamaAfter: Int?
+
+    /// What the row shows: "+10" for a relative iqama, otherwise its time.
+    var iqamaLabel: String? { iqamaTime.map { time in iqamaAfter.map { "+\($0)" } ?? time } }
 
     var id: String { "\(name):\(start.timeIntervalSince1970)" }
 }

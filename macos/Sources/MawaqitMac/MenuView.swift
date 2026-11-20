@@ -212,10 +212,10 @@ struct MenuContentView: View {
             }
             Text(prayer.time).font(.body.weight(.medium)).monospacedDigit()
             if iqamaColumn {
-                Text(prayer.iqamaTime ?? "")
+                Text(prayer.iqamaLabel ?? "")
                     .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     .frame(width: 34, alignment: .trailing)
-                    .help(prayer.iqamaTime == nil ? "" : "Iqama")
+                    .help(prayer.iqamaTime.map { "Iqama at \($0)" } ?? "")
             }
         }
         .foregroundStyle(past ? .secondary : .primary)
