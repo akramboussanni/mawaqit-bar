@@ -10,7 +10,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {schedule} from './calendar.js';
 import {dueNotifications} from './notifications.js';
-import {remaining, prayerDetail, panelTitle, displayPrayers, nextSummary} from './presentation.js';
+import {remaining, prayerDetail, currentDetail, panelTitle, displayPrayers, nextSummary} from './presentation.js';
 import {CONNECT_PROMPT, KIND_LABELS, calendarFromTimetable, kimonoLink, sourceLabel} from './kimono.js';
 
 export default class MawaqitExtension extends Extension {
@@ -94,6 +94,13 @@ export default class MawaqitExtension extends Extension {
             this._render();
         });
         this._button.menu.addMenuItem(this._timeLeftSwitch);
+        this._iqamaSwitch = new PopupMenu.PopupSwitchMenuItem('Show iqama times', this._state.showIqama !== false);
+        this._iqamaSwitch.connect('toggled', (_item, enabled) => {
+            this._state.showIqama = enabled;
+            this._save();
+            this._render();
+        });
+        this._button.menu.addMenuItem(this._iqamaSwitch);
         this._refreshAction = this._action('Refresh prayer times', () => this._refreshCurrent());
         this._refreshAction.insert_child_at_index(this._icon('view-refresh-symbolic'), 1);
         this._refreshAction.add_style_class_name('mawaqit-refresh');
@@ -139,7 +146,7 @@ export default class MawaqitExtension extends Extension {
         if (!this._alive || !this._data || !this._hasLocation() || this._state.notificationsEnabled === false) return;
         try {
             const view = schedule(this._data);
-            for (const event of dueNotifications(view, since, this._notificationSeen)) {
+            for (const event of dueNotifications(view, since, this._notificationSeen, this._state.showIqama !== false)) {
                 const source = this._isCalculated() ? ' · Calculated' : '';
                 Main.notify(event.title, `${event.body} (${view.timezone}) · ${this._state.place?.name ?? 'Kimono Times'}${source}`);
                 this._notificationSeen.add(event.id);
@@ -368,7 +375,8 @@ export default class MawaqitExtension extends Extension {
         this._generation++;
         this._searchGeneration++;
         this._state = {notificationsEnabled: this._state.notificationsEnabled !== false,
-            iconOnlyMenuBar: this._state.iconOnlyMenuBar === true, link};
+            iconOnlyMenuBar: this._state.iconOnlyMenuBar === true, titleMode: this._state.titleMode,
+            showIqama: this._state.showIqama, link};
         this._data = null;
         this._notificationSeen.clear();
         this._lastNotificationCheck = Math.floor(Date.now() / 1000);
@@ -384,7 +392,8 @@ export default class MawaqitExtension extends Extension {
         this._generation++;
         this._searchGeneration++;
         this._state = {notificationsEnabled: this._state.notificationsEnabled !== false,
-            iconOnlyMenuBar: this._state.iconOnlyMenuBar === true};
+            iconOnlyMenuBar: this._state.iconOnlyMenuBar === true, titleMode: this._state.titleMode,
+            showIqama: this._state.showIqama};
         this._data = null;
         this._results.removeAll();
         this._searchEntry.set_text('');
@@ -501,7 +510,13 @@ export default class MawaqitExtension extends Extension {
             const icons = ['weather-clear-night-symbolic', 'weather-clear-symbolic',
                 'weather-clear-symbolic', 'weather-few-clouds-symbolic',
                 'weather-few-clouds-night-symbolic', 'weather-clear-night-symbolic'];
-            for (const prayer of displayPrayers(view)) {
+            const showIqama = this._state.showIqama !== false;
+            const rows = displayPrayers(view);
+            // Rows without an iqama keep the slot, so the adhan times stay in one column.
+            const iqamaColumn = showIqama && rows.some(p => p.iqamaTime);
+            const iqamaLabel = prayer => new St.Label({text: prayer.iqamaTime ?? '', style_class: 'mawaqit-iqama-time',
+                y_align: Clutter.ActorAlign.CENTER});
+            for (const prayer of rows) {
                 const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
                 item.add_style_class_name('mawaqit-prayer-row');
                 item.add_style_class_name('mawaqit-info');
@@ -513,8 +528,9 @@ export default class MawaqitExtension extends Extension {
                     const headline = new St.BoxLayout({x_expand: true, style_class: 'mawaqit-current-headline'});
                     headline.add_child(new St.Label({text: prayer.name, x_expand: true}));
                     headline.add_child(new St.Label({text: prayer.time}));
+                    if (iqamaColumn) headline.add_child(iqamaLabel(prayer));
                     details.add_child(headline);
-                    const end = new St.Label({text: `Ends at ${prayer.endTime}${prayer.name === 'Isha' ? ' · Islamic midnight' : ''}`, style_class: 'mawaqit-current-detail'});
+                    const end = new St.Label({text: currentDetail(prayer, view, showIqama), style_class: 'mawaqit-current-detail'});
                     end.clutter_text.line_wrap = true;
                     details.add_child(end);
                     item.add_child(details);
@@ -525,6 +541,7 @@ export default class MawaqitExtension extends Extension {
                     if (prayer === view.next) item.add_style_class_name('mawaqit-next');
                     else if (prayer.end <= now) item.add_style_class_name('mawaqit-past');
                     item.add_child(new St.Label({text: prayer.time, style_class: 'mawaqit-prayer-time', y_align: Clutter.ActorAlign.CENTER}));
+                    if (iqamaColumn) item.add_child(iqamaLabel(prayer));
                 }
                 this._rows.addMenuItem(item);
             }

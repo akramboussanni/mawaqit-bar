@@ -28,7 +28,7 @@ export function sourceLabel(place) {
 }
 
 /**
- * Kimono's timetable ({timezone, days: [{date: 'YYYY-MM-DD', times: [6 × 'HH:MM']}]}) in the
+ * Kimono's timetable ({timezone, days: [{date: 'YYYY-MM-DD', times: [6 × 'HH:MM'], iqama}]}) in the
  * yearly calendar shape schedule() reads: calendar[month - 1]['<day>']. The feed runs from
  * yesterday to a few weeks ahead, so no month appears for two different years.
  */
@@ -36,12 +36,17 @@ export function calendarFromTimetable(timetable) {
     if (!timetable || typeof timetable.timezone !== 'string' || !Array.isArray(timetable.days))
         throw new Error('Kimono returned an unexpected response.');
     const calendar = Array.from({length: 12}, () => ({}));
+    const iqamaCalendar = Array.from({length: 12}, () => ({}));
     for (const day of timetable.days) {
         const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day?.date ?? '');
         const month = match ? Number(match[2]) : 0, date = match ? Number(match[3]) : 0;
         if (month < 1 || month > 12 || date < 1 || date > 31 || !Array.isArray(day.times) || day.times.length !== 6)
             throw new Error('Kimono sent a day of prayer times it couldn’t read.');
         calendar[month - 1][String(date)] = day.times;
+        // Iqama is Fajr, Dhuhr, Asr, Maghrib, Isha as 'HH:MM' or null; a null becomes '', which
+        // schedule() skips like any unreadable time.
+        if (Array.isArray(day.iqama) && day.iqama.length === 5)
+            iqamaCalendar[month - 1][String(date)] = day.iqama.map(time => typeof time === 'string' ? time : '');
     }
-    return {timezone: timetable.timezone, calendar};
+    return {timezone: timetable.timezone, calendar, iqamaCalendar};
 }

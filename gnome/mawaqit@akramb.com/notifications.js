@@ -1,8 +1,8 @@
 // Only announce freshly crossed boundaries; do not replay events after suspend.
-export function dueNotifications(view, since, seen = new Set()) {
+export function dueNotifications(view, since, seen = new Set(), showIqama = true) {
     const events = view.today.filter(p => !p.sunrise).map(p => ({
-        id: `prayer:${p.name}:${p.unix}`, at: p.unix,
-        title: `${p.name} time`, body: `Ends at ${p.endTime}${p.name === 'Isha' ? ' · Islamic midnight' : ''}`,
+        id: `prayer:${p.name}:${p.unix}`, at: p.unix, title: `${p.name} time`,
+        body: `${showIqama && p.iqamaTime ? `Iqama at ${p.iqamaTime} · ` : ''}Ends at ${p.endTime}${p.name === 'Isha' ? ' · Islamic midnight' : ''}`,
     }));
     events.push({id: `last-third:${view.night.lastThird}`, at: view.night.lastThird,
         title: 'Last third of the night', body: `Until Fajr at ${view.night.endTime}`});

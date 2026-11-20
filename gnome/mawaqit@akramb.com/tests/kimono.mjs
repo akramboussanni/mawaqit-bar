@@ -20,4 +20,12 @@ assert.throws(() => calendarFromTimetable({timezone: 'America/Toronto', days: [{
 assert.throws(() => calendarFromTimetable(null), 'No timetable');
 assert.equal(sourceLabel({kind: 'masjidbox'}), 'Kimono · MasjidBox');
 assert.equal(sourceLabel({kind: 'calculated'}), 'Kimono · Calculated');
+const withIqama = calendarFromTimetable({timezone: 'America/Toronto', days: [
+    {date: '2027-01-01', times, iqama: ['06:40', '12:30', null, null, '18:30']},
+    {date: '2027-01-02', times, iqama: null},
+    {date: '2027-01-03', times}]});
+assert.deepEqual(withIqama.iqamaCalendar[0]['1'], ['06:40', '12:30', '', '', '18:30'], 'Iqama with gaps');
+assert.equal(withIqama.iqamaCalendar[0]['2'], undefined, 'No iqama that day');
+assert.equal(withIqama.iqamaCalendar[0]['3'], undefined, 'An older feed without iqama');
+assert.equal(feed.iqamaCalendar[11]['31'], undefined, 'Null iqama');
 console.log('Kimono tests passed');

@@ -60,6 +60,26 @@ struct ScheduleTests {
         let view = try ScheduleBuilder.build(calendar, now: try #require(ISO8601DateFormatter().date(from: "2027-01-01T18:00:00Z")))
         #expect(view.current?.name == "Dhuhr")
         #expect(view.next?.name == "Asr")
+        #expect(calendar.iqamaCalendar?[0]["1"] == ["06:40", "", "", "", ""])
+        #expect(calendar.iqamaCalendar?[11]["31"] == nil)
+        #expect(view.today.map(\.iqamaTime) == ["06:40", nil, nil, nil, nil, nil])
+    }
+
+    @Test func kimonoIqamaShowsAndCountsDown() throws {
+        let json = #"""
+        {"timezone":"America/Toronto","days":[
+          {"date":"2027-01-01","times":["06:21","07:41","12:11","14:21","16:31","18:01"],"iqama":["06:40","12:30","14:35",null,"18:30"]},
+          {"date":"2027-01-02","times":["06:22","07:42","12:12","14:22","16:32","18:02"],"iqama":null},
+          {"date":"2026-12-31","times":["06:20","07:40","12:10","14:20","16:30","18:00"]}]}
+        """#
+        let calendar = try JSONDecoder().decode(KimonoTimetable.self, from: Data(json.utf8)).prayerCalendar()
+        // 12:22 in Toronto: Dhuhr is open and its iqama is at 12:30.
+        let view = try ScheduleBuilder.build(calendar, now: try #require(ISO8601DateFormatter().date(from: "2027-01-01T17:22:00Z")))
+        let dhuhr = try #require(view.current)
+        #expect(dhuhr.iqamaTime == "12:30")
+        #expect(Presentation.currentDetail(dhuhr, view: view) == "Iqama in 8min")
+        #expect(Presentation.currentDetail(dhuhr, view: view, showIqama: false) == "Ends at 14:21")
+        #expect(view.today.map(\.iqamaTime) == ["06:40", nil, "12:30", "14:35", nil, "18:30"])
     }
 
     @Test func kimonoTimetableRefusesUnreadableDays() {
@@ -141,5 +161,97 @@ struct ScheduleTests {
         #expect(Set(events.map(\.id)).count == events.count)
         #expect(events.first?.body == "Ends at 19:00 (America/Toronto) · Test")
         #expect(zip(events, events.dropFirst()).allSatisfy { $0.date <= $1.date })
+    }
+
+    private static let iqamaDays = Dictionary(uniqueKeysWithValues: (1...31).map {
+        (String($0), ["05:00", "06:30", "13:00", "16:30", "19:00", "20:30"])
+    })
+
+    private static func iqamaCalendar(_ iqama: [String], enabled: Bool? = true) -> PrayerCalendar {
+        let days = Dictionary(uniqueKeysWithValues: (1...31).map { (String($0), iqama) })
+        return PrayerCalendar(timezone: "America/Toronto", calendar: Array(repeating: iqamaDays, count: 12),
+            iqamaCalendar: Array(repeating: days, count: 12), iqamaEnabled: enabled)
+    }
+
+    @Test func iqamaResolvesFromMinutesAfterOrClockTime() throws {
+        #expect(ScheduleBuilder.iqamaDelay("+10", adhan: "13:00") == 10)
+        #expect(ScheduleBuilder.iqamaDelay("+0", adhan: "13:00") == 0)
+        #expect(ScheduleBuilder.iqamaDelay("13:15", adhan: "13:00") == 15)
+        #expect(ScheduleBuilder.iqamaDelay("00:10", adhan: "23:50") == 20) // after midnight
+        for bad in ["", "+", "+-5", "+5m", "abc", "25:00", "13:5", "13"] {
+            #expect(ScheduleBuilder.iqamaDelay(bad, adhan: "13:00") == nil)
+        }
+        let data = Self.iqamaCalendar(["+20", "13:15", "+0", "nope", "20:40"])
+        let view = try ScheduleBuilder.build(data, now: try #require(ISO8601DateFormatter().date(from: "2026-09-19T17:00:00Z")))
+        let iqama = Dictionary(uniqueKeysWithValues: view.today.map { ($0.name, $0.iqamaTime) })
+        #expect(iqama["Fajr"] == "05:20")
+        #expect(iqama["Sunrise"] == .some(nil))
+        #expect(iqama["Dhuhr"] == "13:15")
+        #expect(iqama["Asr"] == "16:30")
+        #expect(iqama["Maghrib"] == .some(nil))
+        #expect(iqama["Isha"] == "20:40")
+        // 13:15 before Dhuhr's 13:20 adhan means tomorrow, past Asr: dropped rather than shown.
+        var late = PrayerCalendar(timezone: "America/Toronto", calendar: Array(repeating: Dictionary(uniqueKeysWithValues:
+            (1...31).map { (String($0), ["05:00", "06:30", "13:20", "16:30", "19:00", "20:30"]) }), count: 12),
+            iqamaCalendar: data.iqamaCalendar)
+        #expect(try ScheduleBuilder.build(late, now: view.now).today[2].iqama == nil)
+        late.iqamaEnabled = false
+        #expect(try ScheduleBuilder.build(late, now: view.now).today.allSatisfy { $0.iqama == nil })
+    }
+
+    @Test func ishaIqamaCanCrossMidnight() throws {
+        let days = Dictionary(uniqueKeysWithValues: (1...31).map {
+            (String($0), ["03:30", "05:15", "13:30", "17:45", "21:00", "23:00"])
+        })
+        let iqama = Dictionary(uniqueKeysWithValues: (1...31).map { (String($0), ["+15", "+10", "+10", "+5", "00:05"]) })
+        let data = PrayerCalendar(timezone: "America/Toronto", calendar: Array(repeating: days, count: 12),
+            iqamaCalendar: Array(repeating: iqama, count: 12))
+        // 23:30 local; Islamic midnight is 00:15.
+        let view = try ScheduleBuilder.build(data, now: try #require(ISO8601DateFormatter().date(from: "2026-06-20T03:30:00Z")))
+        let isha = try #require(view.current)
+        #expect(isha.name == "Isha" && isha.iqamaTime == "00:05")
+        #expect(isha.iqama == isha.start.addingTimeInterval(65 * 60))
+        #expect(Presentation.currentDetail(isha, view: view) == "Iqama in 35min")
+    }
+
+    @Test func currentRowCountsDownToIqamaThenShowsTheEnd() throws {
+        let data = Self.iqamaCalendar(["+20", "13:15", "+10", "+5", "+15"])
+        let formatter = ISO8601DateFormatter()
+        let early = try ScheduleBuilder.build(data, now: try #require(formatter.date(from: "2026-09-19T17:07:00Z"))) // 13:07
+        let dhuhr = try #require(early.current)
+        #expect(Presentation.currentDetail(dhuhr, view: early) == "Iqama in 8min")
+        #expect(Presentation.currentDetail(dhuhr, view: early, showIqama: false) == "Ends at 16:30")
+        let after = try ScheduleBuilder.build(data, now: try #require(formatter.date(from: "2026-09-19T17:15:00Z"))) // 13:15
+        #expect(Presentation.currentDetail(try #require(after.current), view: after) == "Ends at 16:30")
+        let isha = try ScheduleBuilder.build(data, now: try #require(formatter.date(from: "2026-09-20T01:00:00Z"))) // 21:00
+        #expect(Presentation.currentDetail(try #require(isha.current), view: isha) == "Ends at 00:00 · Islamic midnight")
+    }
+
+    @Test func notificationsNameTheIqamaFirstAndThePlaceLast() throws {
+        let data = Self.iqamaCalendar(["+20", "13:15", "+10", "+5", "+15"])
+        let now = try #require(ISO8601DateFormatter().date(from: "2026-09-19T18:00:00Z")) // 14:00 local
+        let events = try Presentation.upcomingNotifications(data, now: now, place: "Test", calculated: false)
+        #expect(events.first?.body == "Iqama at 16:40 · Ends at 19:00 (America/Toronto) · Test")
+        let off = try Presentation.upcomingNotifications(data, now: now, place: "Test", calculated: false, showIqama: false)
+        #expect(off.first?.body == "Ends at 19:00 (America/Toronto) · Test")
+    }
+
+    @Test func missingOrOddIqamaDataLeavesAdhanTimesAlone() throws {
+        let old = try JSONDecoder().decode(PrayerCalendar.self, from: Data(#"{"timezone":"America/Toronto","calendar":[]}"#.utf8))
+        #expect(old.iqamaCalendar == nil && old.iqamaEnabled == nil)
+        let odd = try JSONDecoder().decode(PrayerCalendar.self,
+            from: Data(#"{"timezone":"America/Toronto","calendar":[],"iqamaCalendar":"soon","iqamaEnabled":"yes"}"#.utf8))
+        #expect(odd.iqamaCalendar == nil && odd.iqamaEnabled == nil)
+        let nulls = try JSONDecoder().decode(PrayerCalendar.self,
+            from: Data(#"{"timezone":"America/Toronto","calendar":[],"iqamaCalendar":[{"1":["+5",null,"+5","+5","+5"]}]}"#.utf8))
+        #expect(nulls.iqamaCalendar?[0]["1"]?[1] == "")
+        let state = try JSONDecoder().decode(SavedState.self, from: Data(#"{"notificationsEnabled":true}"#.utf8))
+        #expect(state.showIqama == nil)
+        // A day with no iqama entry, or too few, shows no iqama.
+        let short = PrayerCalendar(timezone: "America/Toronto", calendar: Array(repeating: Self.iqamaDays, count: 12),
+            iqamaCalendar: Array(repeating: ["1": ["+5"]], count: 12))
+        let view = try ScheduleBuilder.build(short, now: try #require(ISO8601DateFormatter().date(from: "2026-09-19T17:07:00Z")))
+        #expect(view.today.allSatisfy { $0.iqama == nil })
+        #expect(Presentation.currentDetail(try #require(view.current), view: view) == "Ends at 16:30")
     }
 }

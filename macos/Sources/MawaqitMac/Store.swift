@@ -87,7 +87,8 @@ final class MawaqitStore: ObservableObject {
         searchTask?.cancel()
         refreshTask?.cancel()
         let notifications = state.notificationsEnabled
-        state = SavedState(notificationsEnabled: notifications, link: link.absoluteString, titleMode: state.titleMode)
+        state = SavedState(notificationsEnabled: notifications, link: link.absoluteString, titleMode: state.titleMode,
+            showIqama: state.showIqama)
         query = ""
         results = []
         status = ""
@@ -100,7 +101,8 @@ final class MawaqitStore: ObservableObject {
     func disconnect() {
         searchTask?.cancel()
         refreshTask?.cancel()
-        state = SavedState(notificationsEnabled: state.notificationsEnabled, titleMode: state.titleMode)
+        state = SavedState(notificationsEnabled: state.notificationsEnabled, titleMode: state.titleMode,
+            showIqama: state.showIqama)
         query = ""
         results = []
         status = Self.connectPrompt
@@ -176,6 +178,15 @@ final class MawaqitStore: ObservableObject {
     func setIconOnlyMenuBar(_ enabled: Bool) {
         iconOnlyMenuBar = enabled
         UserDefaults.standard.set(enabled, forKey: "iconOnlyMenuBar")
+    }
+
+    var showIqama: Bool { state.showIqama ?? true }
+
+    func setShowIqama(_ enabled: Bool) {
+        state.showIqama = enabled
+        save()
+        render()
+        scheduleNotifications()
     }
 
     func setTitleMode(_ mode: TitleMode) {
@@ -283,16 +294,16 @@ final class MawaqitStore: ObservableObject {
             let blocked = settings.authorizationStatus == .denied
             Task { @MainActor in self.notificationsBlocked = blocked }
         }
-        // Reschedule when the source, setting, or hour changes, so the 48-hour window keeps rolling.
+        // Reschedule when the source, settings, or hour changes, so the 48-hour window keeps rolling.
         let hour = Int(Date().timeIntervalSince1970 / 3600)
-        let key = "\(state.notificationsEnabled)|\(state.fetched?.timeIntervalSince1970 ?? 0)|\(hour)"
+        let key = "\(state.notificationsEnabled)|\(showIqama)|\(state.fetched?.timeIntervalSince1970 ?? 0)|\(hour)"
         guard key != scheduledNotificationsKey else { return }
         scheduledNotificationsKey = key
         center.removeAllPendingNotificationRequests()
         guard state.notificationsEnabled, let data = state.calendar,
               let events = try? Presentation.upcomingNotifications(data, now: Date(),
                   place: state.place?.name ?? "Kimono Times",
-                  calculated: isCalculated) else { return }
+                  calculated: isCalculated, showIqama: showIqama) else { return }
         for event in events {
             let content = UNMutableNotificationContent()
             content.title = event.title

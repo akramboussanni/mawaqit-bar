@@ -65,4 +65,15 @@ if (ARGV[0]) {
     assert(schedule(live).today.length === 6, 'Live Kimono timetable');
     print(`Live calendar OK: ${live.timezone}`);
 }
+// Iqama: '+N' or 'HH:MM', ignored when unreadable, outside its prayer, or turned off by the mosque.
+const iqamaDays = Object.fromEntries(Array.from({length: 31}, (_, i) => [String(i + 1), ['+20', '12:45', '+0', 'nope', '00:10']]));
+const withIqama = {...data, iqamaCalendar: Array.from({length: 12}, () => iqamaDays), iqamaEnabled: true};
+const iqamaView = schedule(withIqama, GLib.DateTime.new_from_iso8601('2026-09-12T16:40:00Z', null));
+const iqamaTimes = Object.fromEntries(iqamaView.today.map(p => [p.name, p.iqamaTime]));
+assert(iqamaTimes.Fajr === '05:20' && iqamaTimes.Dhuhr === '12:45' && iqamaTimes.Asr === '15:30', 'Iqama times resolve');
+assert(iqamaTimes.Maghrib === null && iqamaTimes.Sunrise === null, 'Unreadable iqama and sunrise have none');
+assert(iqamaTimes.Isha === null, 'Isha iqama after Islamic midnight is dropped');
+assert(iqamaView.current.iqama - iqamaView.current.unix === 15 * 60, 'Iqama is an instant after the adhan');
+assert(schedule({...withIqama, iqamaEnabled: false}, GLib.DateTime.new_from_iso8601('2026-09-12T16:40:00Z', null)).current.iqama === null, 'Mosque turned iqama off');
+assert(schedule(data, GLib.DateTime.new_from_iso8601('2026-09-12T16:40:00Z', null)).current.iqama === null, 'No iqama data');
 print('Calendar tests passed');
