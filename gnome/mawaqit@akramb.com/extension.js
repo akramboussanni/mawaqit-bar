@@ -20,15 +20,15 @@ export default class MawaqitExtension extends Extension {
         this._requests = new Set();
         this._lastNotificationCheck = Math.floor(Date.now() / 1000);
         this._notificationSeen = new Set();
-        this._session = new Soup.Session({timeout: 20, user_agent: 'AkramB-Mawaqit-GNOME/1.0'});
-        this._file = Gio.File.new_for_path(GLib.build_filenamev([GLib.get_user_config_dir(), 'mrie-mawaqit', 'state.json']));
+        this._session = new Soup.Session({timeout: 20, user_agent: 'KimonoPrayer-GNOME/1.0'});
+        this._file = Gio.File.new_for_path(GLib.build_filenamev([GLib.get_user_config_dir(), 'kimono-prayer', 'state.json']));
         try {
             const [ok, bytes] = this._file.load_contents(null);
             if (ok) this._state = JSON.parse(new TextDecoder().decode(bytes));
         } catch (_) { /* First launch has no saved mosque. */ }
         this._state ??= {};
         this._data = this._state.calendar;
-        this._button = new PanelMenu.Button(0.0, 'Mawaqit Prayer Times');
+        this._button = new PanelMenu.Button(0.0, 'Kimono Prayer');
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
         box.add_child(new St.Icon({icon_name: 'weather-clear-night-symbolic', style_class: 'system-status-icon'}));
         this._panelLabel = new St.Label({text: '', y_align: Clutter.ActorAlign.CENTER});
@@ -386,7 +386,7 @@ export default class MawaqitExtension extends Extension {
     }
 
     _locationError(error) {
-        console.warn(`Mawaqit location request: ${error.message}`);
+        console.warn(`Kimono Prayer location request: ${error.message}`);
         this._error(new Error('Could not access your location. Enable Location Services for GNOME Shell in Settings → Privacy, or enter “City, Country” below.'));
     }
 
