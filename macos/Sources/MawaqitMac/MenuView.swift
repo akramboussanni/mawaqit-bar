@@ -32,13 +32,10 @@ struct MenuContentView: View {
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !store.results.isEmpty || store.calculatedSuggestion != nil {
+            if !store.results.isEmpty {
                 // Search results have their own bounded area; the schedule never scrolls.
                 ScrollView {
-                    VStack(spacing: 8) {
-                        if !store.results.isEmpty { results }
-                        if store.calculatedSuggestion != nil { calculatedOption }
-                    }
+                    VStack(spacing: 8) { results }
                 }
                 .frame(height: 180)
             } else if let view = store.schedule {
@@ -81,15 +78,15 @@ struct MenuContentView: View {
 
     private var results: some View {
         VStack(spacing: 10) {
-            ForEach(store.results) { mosque in
-                Button { store.choose(slug: mosque.slug, name: mosque.name) } label: {
+            ForEach(store.results) { place in
+                Button { store.choose(place) } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "mappin.and.ellipse").foregroundStyle(.tint)
+                        Image(systemName: place.kind == .calculated ? "location.circle" : "mappin.and.ellipse")
+                            .foregroundStyle(.tint)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(mosque.name).fontWeight(.medium)
-                            if let location = mosque.location {
-                                Text(location).font(.caption).foregroundStyle(.secondary)
-                            }
+                            Text(place.name).fontWeight(.medium)
+                            Text([place.kind.label, place.detail].compactMap { $0 }.joined(separator: " · "))
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
@@ -100,29 +97,10 @@ struct MenuContentView: View {
         }
     }
 
-    private var calculatedOption: some View {
-        Button { store.useCalculatedTimes() } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "location.circle").font(.title2).foregroundStyle(.tint)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Use calculated prayer times").fontWeight(.medium)
-                    Text("AlAdhan · City, country or coordinates")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Text("May differ from your local mosque.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.caption)
-            }.padding(12).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
-    }
-
     @ViewBuilder
     private func schedule(_ view: ScheduleView) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(store.state.name ?? store.state.slug ?? store.state.calculationQuery ?? "Mawaqit")
+            Text(store.state.place?.name ?? "Kimono Prayer")
                 .font(.headline).lineLimit(1)
             Text(view.dateText).font(.subheadline).foregroundStyle(.secondary)
             HStack(spacing: 5) {
@@ -130,7 +108,7 @@ struct MenuContentView: View {
                     .lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 0)
                 Button(action: openSettings) {
-                    Text(store.isCalculated ? "AlAdhan ⓘ" : "Mawaqit ⓘ")
+                    Text("\(store.sourceLabel) ⓘ")
                 }
                 .buttonStyle(.plain)
                 .help("Prayer time source and calculation details")
@@ -171,7 +149,7 @@ struct MenuContentView: View {
                 }
                 .modifier(GlassButton(round: false))
                 .keyboardShortcut("r")
-                .disabled(!store.hasLocation || store.isLoading)
+                .disabled(!store.isConnected || store.isLoading)
                 Spacer()
                 Button(action: openSettings) {
                     Label("Settings…", systemImage: "gearshape")
@@ -330,10 +308,12 @@ struct SettingsPage: View {
         }
         if store.hasLocation {
             section("Prayer time source") {
-                Text(store.isCalculated ? "Calculated by AlAdhan" : "Mosque schedule from Mawaqit")
+                Text(store.isCalculated ? "Calculated by Kimono"
+                    : "Mosque schedule from \(store.state.place?.kind.label ?? "Mawaqit"), through Kimono")
+                if let detail = store.state.place?.detail {
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }
                 if store.isCalculated {
-                    Text(store.state.calculationMethod ?? "Automatic local method")
-                        .font(.caption).foregroundStyle(.secondary)
                     Text("Calculated times may differ from your local mosque or religious authority.")
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
